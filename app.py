@@ -1,3 +1,4 @@
+'''
 from google import genai
 from config import GEMINI_API_KEY
 
@@ -30,3 +31,32 @@ if __name__ == "__main__":
 #✅ Prompt behavior analysis
 #✅ Input guardrails
 #✅ Real-world hallucination example
+'''
+from pdf_loader import load_pdf
+from chunker import chunk_text
+from graph import build_graph
+from state import SummaryState
+
+PDF_PATH = "Resume.pdf"   # put your PDF here
+
+def main():
+    raw_text = load_pdf(PDF_PATH)
+    chunks = chunk_text(raw_text)
+
+    graph = build_graph()
+
+    initial_state: SummaryState = {
+        "raw_text": raw_text,
+        "chunks": chunks,
+        "chunk_summaries": [],
+        "final_summary": ""
+    }
+
+    result = graph.invoke(initial_state)
+
+    print("\n📄 FINAL SUMMARY:\n")
+    print(result["final_summary"])
+
+
+if __name__ == "__main__":
+    main()
