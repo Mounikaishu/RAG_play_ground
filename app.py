@@ -34,28 +34,47 @@ if __name__ == "__main__":
 '''
 from pdf_loader import load_pdf
 from chunker import chunk_text
-from graph import build_graph
-from state import SummaryState
+from vectorstore import store_chunks, retrieve_relevant_chunks
+from llm import llm_call
 
-PDF_PATH = "Resume.pdf"   # put your PDF here
+PDF_PATH = "Resume.pdf"
 
 def main():
+    print("Loading PDF...")
     raw_text = load_pdf(PDF_PATH)
+
+    print("Chunking text...")
     chunks = chunk_text(raw_text)
 
-    graph = build_graph()
+    print("Storing embeddings in ChromaDB...")
+    store_chunks(chunks)
 
-    initial_state: SummaryState = {
-        "raw_text": raw_text,
-        "chunks": chunks,
-        "chunk_summaries": [],
-        "final_summary": ""
-    }
+    print("\nRAG system ready! Ask questions (type 'exit' to quit)\n")
 
-    result = graph.invoke(initial_state)
+    while True:
+        question = input("You: ").strip()
 
-    print("\n📄 FINAL SUMMARY:\n")
-    print(result["final_summary"])
+        if question.lower() == "exit":
+            break
+
+        relevant_chunks = retrieve_relevant_chunks(question)
+
+        context = "\n\n".join(relevant_chunks)
+
+        prompt = f"""
+        Answer the question based ONLY on the context below.
+        If the answer is not in the context, say "Not found in document."
+
+        Context:
+        {context}
+
+        Question:
+        {question}
+        """
+
+        answer = llm_call(prompt)
+
+        print("\nAnswer:", answer, "\n")
 
 
 if __name__ == "__main__":
