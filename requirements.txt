@@ -2,3 +2,5 @@ google-genai
 langgraph
 pypdf
 python-dotenv
+chromadb
+sentence-transformers
