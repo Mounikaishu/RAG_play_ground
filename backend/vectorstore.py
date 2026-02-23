@@ -1,18 +1,24 @@
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-# Load embedding model
+# Load embedding model once
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Initialize Chroma client
+# Create Chroma client (in-memory for MVP)
 client = chromadb.Client()
 
-collection = client.get_or_create_collection(name="pdf_chunks")
+# Create or get collection
+collection = client.get_or_create_collection(name="resume_chunks")
 
 
 def store_chunks(chunks):
-    embeddings = embedding_model.encode(chunks).tolist()
+    """
+    Store resume chunks into ChromaDB.
+    """
+    if not chunks:
+        return
 
+    embeddings = embedding_model.encode(chunks).tolist()
     ids = [f"id_{i}" for i in range(len(chunks))]
 
     collection.add(
@@ -23,6 +29,12 @@ def store_chunks(chunks):
 
 
 def retrieve_relevant_chunks(query, k=3):
+    """
+    Retrieve top-k relevant chunks based on query.
+    """
+    if not query:
+        return []
+
     query_embedding = embedding_model.encode([query]).tolist()
 
     results = collection.query(
@@ -30,4 +42,21 @@ def retrieve_relevant_chunks(query, k=3):
         n_results=k
     )
 
+    if not results["documents"]:
+        return []
+
     return results["documents"][0]
+
+
+def clear_collection():
+    """
+    Clears old resume embeddings.
+    """
+    global collection
+
+    try:
+        client.delete_collection("resume_chunks")
+    except Exception:
+        pass  # Collection may not exist yet
+
+    collection = client.get_or_create_collection(name="resume_chunks")
