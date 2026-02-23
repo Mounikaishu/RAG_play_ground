@@ -1,32 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { FaPaperPlane } from "react-icons/fa";
+import "./App.css";
 
 function App() {
+  const [mode, setMode] = useState(null);
   const [file, setFile] = useState(null);
   const [chat, setChat] = useState([]);
   const [input, setInput] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat]);
 
   const uploadResume = async () => {
-    if (!file) {
-      alert("Please select a file first.");
-      return;
-    }
+    if (!file) return alert("Select a file first");
 
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
-      const response = await axios.post(
-        "http://127.0.0.1:8000/upload",
-        formData
-      );
+    const response = await axios.post(
+      "http://127.0.0.1:8000/upload",
+      formData
+    );
 
-      setMessage(response.data.message);
-    } catch (error) {
-      console.error(error);
-      alert("Upload failed. Make sure backend is running.");
-    }
+    setMessage(response.data.message);
   };
 
   const sendMessage = async () => {
@@ -34,51 +36,72 @@ function App() {
 
     const formData = new FormData();
     formData.append("question", input);
+    formData.append("mode", mode);
 
-    try {
-      const response = await axios.post(
-        "http://127.0.0.1:8000/chat",
-        formData
-      );
+    setLoading(true);
 
-      setChat([...chat, { user: input, bot: response.data.answer }]);
-      setInput("");
-    } catch (error) {
-      console.error(error);
-      alert("Chat failed. Check backend.");
-    }
+    const response = await axios.post(
+      "http://127.0.0.1:8000/chat",
+      formData
+    );
+
+    setChat([...chat, { user: input, bot: response.data.answer }]);
+    setInput("");
+    setLoading(false);
   };
 
+  if (!mode) {
+    return (
+      <div className="mode-container">
+        <h1>🤖 AI Resume Coach</h1>
+        <h3>Select Mode</h3>
+        <button onClick={() => setMode("mentor")}>
+          👩‍🏫 Mentor Mode
+        </button>
+        <button onClick={() => setMode("recruiter")}>
+          🧑‍💼 Recruiter Mode
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: "40px", fontFamily: "Arial" }}>
-      <h1>AI Resume Coach</h1>
+    <div className="app-container">
+      <div className="header">
+        🤖 AI Resume Coach | Mode: {mode.toUpperCase()}
+      </div>
 
-      <h3>Upload Resume</h3>
-      <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-      <button onClick={uploadResume}>Upload</button>
-      <p>{message}</p>
+      <div className="upload-section">
+        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
+        <button onClick={uploadResume}>Upload</button>
+        <p className="status">{message}</p>
+      </div>
 
-      <hr />
-
-      <h3>Chat</h3>
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Ask about your resume..."
-        style={{ width: "300px" }}
-      />
-      <button onClick={sendMessage}>Send</button>
-
-      <div style={{ marginTop: "20px" }}>
+      <div className="chat-window">
         {chat.map((msg, index) => (
-          <div key={index} style={{ marginBottom: "15px" }}>
-            <b>You:</b> {msg.user}
-            <br />
-            <b>Coach:</b> {msg.bot}
-            <hr />
+          <div key={index}>
+            <div className="user-message">{msg.user}</div>
+            <div className="bot-message">{msg.bot}</div>
           </div>
         ))}
+
+        {loading && <div className="bot-message">Typing...</div>}
+
+        <div ref={chatEndRef} />
       </div>
+
+      <div className="input-section">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type your question..."
+        />
+        <button onClick={sendMessage}>
+          <FaPaperPlane />
+        </button>
+      </div>
+
+      <img src="/bot.png" className="floating-bot" alt="bot" />
     </div>
   );
 }
