@@ -10,7 +10,7 @@ from graph import build_graph
 
 app = FastAPI()
 
-# Allow frontend to access backend
+# Allow frontend access
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -24,19 +24,15 @@ history = []
 
 @app.post("/upload")
 async def upload_resume(file: UploadFile = File(...)):
-    """
-    Upload and process a single resume.
-    Old resume embeddings are cleared.
-    """
     global history
 
     file_path = "temp_resume.pdf"
 
-    # Save uploaded file temporarily
+    # Save file temporarily
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Clear previous resume embeddings
+    # Clear old embeddings
     clear_collection()
 
     # Process resume
@@ -44,38 +40,26 @@ async def upload_resume(file: UploadFile = File(...)):
     chunks = chunk_text(raw_text)
     store_chunks(chunks)
 
-    # Reset conversation history
-    history = []
+    history = []  # Reset chat history
 
-    # Delete temporary file
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    os.remove(file_path)
 
     return {"message": "Resume processed successfully"}
 
 
 @app.post("/chat")
-async def chat(question: str = Form(...)):
-    """
-    Chat endpoint using LangGraph RAG.
-    """
+async def chat(question: str = Form(...), mode: str = Form(...)):
     global history
-
-    if not question:
-        return {"answer": "Please ask a valid question."}
 
     state = {
         "question": question,
         "context": "",
         "answer": "",
-        "history": history
+        "history": history,
+        "mode": mode
     }
 
     result = graph.invoke(state)
-
     history = result["history"]
 
     return {"answer": result["answer"]}
-@app.get("/")
-def root():
-    return {"message": "AI Resume Coach Backend Running"}
