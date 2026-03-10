@@ -18,33 +18,20 @@ def retrieve_node(state: ChatState) -> ChatState:
 # 🔹 Node 2: Resume Coach (LLM)
 def coach_node(state: ChatState) -> ChatState:
     history_text = "\n".join(state["history"])
-    question = state["question"].lower()
+    mode = state.get("mode", "mentor")
 
-    role_keywords = [
-        "product company",
-        "faang",
-        "backend",
-        "frontend",
-        "data scientist",
-        "machine learning",
-        "ml engineer",
-        "internship",
-        "software engineer"
-    ]
-
-    role_mode = any(keyword in question for keyword in role_keywords)
-
-    if role_mode:
+    if mode == "recruiter":
         role_instruction = """
-You are a realistic hiring manager evaluating the student for that specific role.
-Be practical, role-focused, and direct.
-Point out strengths and gaps clearly.
+You are a realistic hiring manager.
+Evaluate the student critically.
+Highlight strengths and skill gaps clearly.
+Focus on industry expectations.
 """
     else:
         role_instruction = """
 You are a supportive but honest career mentor.
-Guide the student clearly and practically.
-Keep it conversational and natural.
+Guide the student clearly.
+Be practical and motivating.
 """
 
     prompt = f"""
@@ -60,11 +47,14 @@ Student Question:
 {state["question"]}
 
 Guidelines:
-- Keep the answer aligned with the student's actual resume details.
-- Do not give generic textbook advice.
-- Avoid long paragraph blocks.
-- Use clean spacing and bullet points where helpful.
-- Keep the tone natural and easy to understand.
+- Keep the response aligned with resume details.
+- Avoid generic textbook advice.
+- Use clean spacing.
+- Use bullet points for readability
+- Leave a blank line between sections
+- Avoid long paragraph blocks
+- Break content into readable bullet points when appropriate.
+- Keep tone natural and clear.
 """
 
     answer = llm_call(prompt)
