@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { FaPaperPlane } from "react-icons/fa";
+import ReactMarkdown from "react-markdown";
 import "./App.css";
 
 function App() {
@@ -55,9 +56,11 @@ function App() {
       <div className="mode-container">
         <h1>🤖 AI Resume Coach</h1>
         <h3>Select Mode</h3>
+
         <button onClick={() => setMode("mentor")}>
           👩‍🏫 Mentor Mode
         </button>
+
         <button onClick={() => setMode("recruiter")}>
           🧑‍💼 Recruiter Mode
         </button>
@@ -67,41 +70,72 @@ function App() {
 
   return (
     <div className="app-container">
+
       <div className="header">
         🤖 AI Resume Coach | Mode: {mode.toUpperCase()}
       </div>
 
       <div className="upload-section">
-        <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-        <button onClick={uploadResume}>Upload</button>
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files[0])}
+        />
+
+        <button onClick={uploadResume}>
+          Upload
+        </button>
+
         <p className="status">{message}</p>
       </div>
 
       <div className="chat-window">
+
         {chat.map((msg, index) => (
           <div key={index}>
-            <div className="user-message">{msg.user}</div>
-            <div className="bot-message">{msg.bot}</div>
+
+            <div className="user-message">
+              {msg.user}
+            </div>
+
+            <div className="bot-message">
+              <ReactMarkdown>
+                {msg.bot}
+              </ReactMarkdown>
+            </div>
+
           </div>
         ))}
 
-        {loading && <div className="bot-message">Typing...</div>}
+        {loading && (
+          <div className="bot-message">
+            Typing...
+          </div>
+        )}
 
         <div ref={chatEndRef} />
+
       </div>
 
       <div className="input-section">
+
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your question..."
+          placeholder="Ask something about your resume..."
         />
+
         <button onClick={sendMessage}>
           <FaPaperPlane />
         </button>
+
       </div>
 
-      <img src="/bot.png" className="floating-bot" alt="bot" />
+      <img
+        src="/bot.png"
+        className="floating-bot"
+        alt="bot"
+      />
+
     </div>
   );
 }
