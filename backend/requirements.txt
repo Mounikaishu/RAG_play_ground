@@ -1,4 +1,6 @@
-google-genai
+fastapi
+uvicorn
+google-generativeai
 langgraph
 pypdf
 python-dotenv
