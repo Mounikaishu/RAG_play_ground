@@ -83,6 +83,7 @@ function App() {
   const [scoreData, setScoreData] = useState(null);
   const [scoreLoading, setScoreLoading] = useState(false);
   const [showScore, setShowScore] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState("");
 
   const chatEndRef = useRef(null);
   const compareChatEndRef = useRef(null);
@@ -119,8 +120,10 @@ function App() {
     setUploading(true); setUploadMessage("");
     try {
       const fd = new FormData(); fd.append("file", file);
+      const uploadingName = file.name;
       const res = await axios.post(`${API_BASE}/upload`, fd, multipartConfig);
       setUploadMessage(res.data.message); setResumeReady(true);
+      setUploadedFileName(uploadingName);
       setFile(null); setScoreData(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch { setUploadMessage("❌ Upload failed."); }
@@ -316,8 +319,8 @@ function App() {
               <div className={`upload-zone ${dragOver ? "drag-over" : ""}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
                 <input type="file" accept=".pdf" ref={fileInputRef} onChange={(e) => setFile(e.target.files[0])} id="file-upload" />
                 <span className="upload-zone-icon"><FaCloudUploadAlt /></span>
-                <div className="upload-zone-text">{file ? file.name : "Drop PDF here"}</div>
-                <div className="upload-zone-hint">or click to browse</div>
+                <div className="upload-zone-text">{file ? file.name : (uploadedFileName ? `📄 ${uploadedFileName} loaded ✅` : "Drop PDF here")}</div>
+                <div className="upload-zone-hint">{uploadedFileName && !file ? "drop a new PDF to replace" : "or click to browse"}</div>
               </div>
               {file && (
                 <div className="upload-actions">
