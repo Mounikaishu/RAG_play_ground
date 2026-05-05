@@ -19,10 +19,14 @@ from llm import llm_call
 
 app = FastAPI()
 
-# Allow React frontend
+# Allow React frontend (local + deployed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://rag-play-ground.onrender.com",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

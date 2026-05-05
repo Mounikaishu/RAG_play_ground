@@ -1,6 +1,4 @@
 import chromadb
-from chromadb.utils import embedding_functions
-from config import GEMINI_API_KEY
 
 # Initialize Chroma client
 client = chromadb.Client()
