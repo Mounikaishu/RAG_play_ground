@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import shutil
 import os
+import traceback
 
 from pdf_loader import load_pdf
 from chunker import chunk_text
@@ -54,32 +55,40 @@ async def upload_resume(file: UploadFile = File(...)):
 
     file_path = "temp_resume.pdf"
 
-    # Save uploaded file
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    try:
+        # Save uploaded file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    print("Resume uploaded")
+        print(f"Resume uploaded: {file.filename}")
 
-    # Remove old embeddings
-    clear_collection()
+        # Remove old embeddings
+        clear_collection()
 
-    # Process new resume
-    raw_text = load_pdf(file_path)
+        # Process new resume
+        raw_text = load_pdf(file_path)
 
-    chunks = chunk_text(raw_text)
+        chunks = chunk_text(raw_text)
 
-    store_chunks(chunks)
+        store_chunks(chunks)
 
-    # Reset history
-    history = []
+        # Reset history
+        history = []
 
-    resume_loaded = True
+        resume_loaded = True
 
-    os.remove(file_path)
+        os.remove(file_path)
 
-    return {
-        "message": "✅ New resume uploaded successfully. You can now ask questions based on this resume."
-    }
+        return {
+            "message": "✅ New resume uploaded successfully. You can now ask questions based on this resume."
+        }
+    except Exception as e:
+        print(f"❌ Upload error: {e}")
+        print(traceback.format_exc())
+        # Clean up temp file if it exists
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        return {"message": f"❌ Upload failed: {str(e)}"}
 
 
 @app.post("/upload-compare")
@@ -190,19 +199,26 @@ async def chat(question: str = Form(...), mode: str = Form(...)):
             "answer": "⚠️ Please upload a resume first before asking questions."
         }
 
-    state = {
-        "question": question,
-        "context": "",
-        "answer": "",
-        "history": history,
-        "mode": mode
-    }
+    try:
+        state = {
+            "question": question,
+            "context": "",
+            "answer": "",
+            "history": history,
+            "mode": mode
+        }
 
-    result = graph.invoke(state)
+        print(f"Chat request - mode: {mode}, question: {question[:80]}...")
 
-    history = result["history"]
+        result = graph.invoke(state)
 
-    return {"answer": result["answer"]}
+        history = result["history"]
+
+        return {"answer": result["answer"]}
+    except Exception as e:
+        print(f"❌ Chat error: {e}")
+        print(traceback.format_exc())
+        return {"answer": f"⚠️ Something went wrong on the server: {str(e)}. Please try uploading your resume again."}
 
 
 @app.post("/score")
