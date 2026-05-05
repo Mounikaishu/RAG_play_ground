@@ -191,3 +191,66 @@ async def chat(question: str = Form(...), mode: str = Form(...)):
     history = result["history"]
 
     return {"answer": result["answer"]}
+
+
+@app.post("/score")
+async def score_resume():
+    """
+    Returns a structured resume score (overall + category breakdown).
+    """
+    from vectorstore import retrieve_relevant_chunks
+    import json
+    import re
+
+    global resume_loaded
+
+    if not resume_loaded:
+        return {"error": "No resume loaded"}
+
+    # Retrieve broad context for scoring
+    chunks = retrieve_relevant_chunks("full resume overview skills experience education projects", k=5)
+    context = "\n\n".join(chunks) if chunks else ""
+
+    prompt = f"""
+Analyze this resume and provide a score. You MUST respond with ONLY a valid JSON object, no other text.
+
+Resume Content:
+{context}
+
+Return EXACTLY this JSON format (no markdown, no code fences, just raw JSON):
+{{
+  "overall": <number 0-100>,
+  "categories": {{
+    "education": {{ "score": <number 0-20>, "comment": "<one sentence>" }},
+    "experience": {{ "score": <number 0-20>, "comment": "<one sentence>" }},
+    "skills": {{ "score": <number 0-20>, "comment": "<one sentence>" }},
+    "projects": {{ "score": <number 0-20>, "comment": "<one sentence>" }},
+    "presentation": {{ "score": <number 0-20>, "comment": "<one sentence>" }}
+  }},
+  "summary": "<2 sentence overall assessment>"
+}}
+"""
+
+    raw = llm_call(prompt)
+
+    # Try to parse JSON from the response
+    try:
+        # Remove markdown code fences if present
+        cleaned = re.sub(r'```json\s*', '', raw)
+        cleaned = re.sub(r'```\s*', '', cleaned)
+        cleaned = cleaned.strip()
+        data = json.loads(cleaned)
+        return data
+    except Exception:
+        # Fallback: return a default structure
+        return {
+            "overall": 70,
+            "categories": {
+                "education": {"score": 14, "comment": "Could not parse detailed score."},
+                "experience": {"score": 14, "comment": "Could not parse detailed score."},
+                "skills": {"score": 14, "comment": "Could not parse detailed score."},
+                "projects": {"score": 14, "comment": "Could not parse detailed score."},
+                "presentation": {"score": 14, "comment": "Could not parse detailed score."},
+            },
+            "summary": raw[:200],
+        }
