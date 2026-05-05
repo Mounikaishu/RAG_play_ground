@@ -4,6 +4,9 @@ import { FaPaperPlane, FaPlus, FaBars, FaTimes, FaCommentDots, FaCloudUploadAlt,
 import ReactMarkdown from "react-markdown";
 import "./App.css";
 
+// API Base URL — change this when switching between local dev and deployed backend
+const API_BASE = process.env.REACT_APP_API_URL || "https://rag-play-ground.onrender.com";
+
 // Score Ring Component
 function ScoreRing({ score, size = 100, strokeWidth = 8 }) {
   const radius = (size - strokeWidth) / 2;
@@ -99,7 +102,7 @@ function App() {
   const fetchScore = async () => {
     setScoreLoading(true);
     try {
-      const res = await axios.post("http://127.0.0.1:8000/score");
+      const res = await axios.post(`${API_BASE}/score`);
       if (!res.data.error) { setScoreData(res.data); setShowScore(true); }
     } catch (e) { /* ignore */ }
     setScoreLoading(false);
@@ -110,7 +113,7 @@ function App() {
     setUploading(true); setUploadMessage("");
     try {
       const fd = new FormData(); fd.append("file", file);
-      const res = await axios.post("http://127.0.0.1:8000/upload", fd);
+      const res = await axios.post(`${API_BASE}/upload`, fd);
       setUploadMessage(res.data.message); setResumeReady(true);
       setFile(null); setScoreData(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -124,7 +127,7 @@ function App() {
     try {
       const fd = new FormData();
       for (const f of compareFiles) fd.append("files", f);
-      const res = await axios.post("http://127.0.0.1:8000/upload-compare", fd);
+      const res = await axios.post(`${API_BASE}/upload-compare`, fd);
       setCompareUploadMessage(res.data.message);
       setCompareResumeNames(res.data.resumes || []);
       setCompareReady(true); setCompareFiles([]); setCompareChat([]);
@@ -148,7 +151,7 @@ function App() {
       : c));
     try {
       const fd = new FormData(); fd.append("question", userMsg); fd.append("mode", mode);
-      const res = await axios.post("http://127.0.0.1:8000/chat", fd);
+      const res = await axios.post(`${API_BASE}/chat`, fd);
       setConversations(prev => prev.map(c => {
         if (c.id !== currentId) return c;
         const msgs = [...c.messages]; msgs[msgs.length - 1] = { user: userMsg, bot: res.data.answer }; return { ...c, messages: msgs };
@@ -168,7 +171,7 @@ function App() {
     setCompareChat(prev => [...prev, { user: userMsg, bot: null }]);
     try {
       const fd = new FormData(); fd.append("question", userMsg);
-      const res = await axios.post("http://127.0.0.1:8000/compare", fd);
+      const res = await axios.post(`${API_BASE}/compare`, fd);
       setCompareChat(prev => { const m = [...prev]; m[m.length-1] = { user: userMsg, bot: res.data.answer }; return m; });
     } catch {
       setCompareChat(prev => { const m = [...prev]; m[m.length-1] = { user: userMsg, bot: "⚠️ Something went wrong." }; return m; });

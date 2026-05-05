@@ -19,13 +19,10 @@ from llm import llm_call
 
 app = FastAPI()
 
-# Allow React frontend (local + deployed)
+# Allow all origins (update with specific frontend URL in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://rag-play-ground.onrender.com",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +33,17 @@ graph = build_graph()
 history = []
 compare_history = []
 resume_loaded = False
+
+
+@app.get("/")
+async def root():
+    """Health check / API info endpoint."""
+    return {
+        "status": "ok",
+        "app": "AI Resume Coach API",
+        "endpoints": ["/upload", "/chat", "/score", "/upload-compare", "/compare"],
+        "docs": "/docs",
+    }
 
 
 @app.post("/upload")
