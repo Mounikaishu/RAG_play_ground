@@ -9,6 +9,7 @@ MODELS = [
     "gemini-3-flash-preview",
     "gemini-2.0-flash",
     "gemini-2.0-pro",
+    "gemini-1.0-pro"
 ]
 
 MAX_RETRIES = 2
