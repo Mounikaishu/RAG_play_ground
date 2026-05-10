@@ -6,7 +6,7 @@ import os
 import traceback
 
 from pdf_loader import load_pdf
-from chunker import chunk_text
+from chunker import chunk_text, chunk_text_with_overlap
 from vectorstore import (
     store_chunks,
     clear_collection,
@@ -15,6 +15,15 @@ from vectorstore import (
     retrieve_chunks_for_compare,
     get_loaded_resume_names,
 )
+from resume_repository import (
+    store_resume_to_repository,
+    search_candidates,
+    get_all_students,
+    remove_student,
+    clear_repository,
+    get_student_count,
+)
+from metadata_extractor import extract_resume_metadata
 from graph import build_graph
 from llm import llm_call
 
@@ -41,8 +50,13 @@ async def root():
     """Health check / API info endpoint."""
     return {
         "status": "ok",
-        "app": "AI Resume Coach API",
-        "endpoints": ["/upload", "/chat", "/score", "/upload-compare", "/compare"],
+        "app": "AI Resume Coach & Recruitment API",
+        "endpoints": [
+            "/upload", "/chat", "/score",
+            "/upload-compare", "/compare",
+            "/repository/upload", "/repository/search",
+            "/repository/students", "/repository/student/{name}",
+        ],
         "docs": "/docs",
     }
 
@@ -282,3 +296,185 @@ Return EXACTLY this JSON format (no markdown, no code fences, just raw JSON):
             },
             "summary": raw[:200],
         }
+
+
+# ============================================
+# DEPARTMENT RESUME REPOSITORY ENDPOINTS
+# ============================================
+
+@app.post("/repository/upload")
+async def upload_to_repository(files: List[UploadFile] = File(...)):
+    """
+    Upload one or more resumes to the department repository.
+    Each resume is processed, chunked, metadata is extracted via LLM,
+    and stored in the shared ChromaDB collection.
+    """
+    uploaded_students = []
+
+    for uploaded_file in files:
+        file_path = f"temp_repo_{uploaded_file.filename}"
+
+        try:
+            # Save file temporarily
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(uploaded_file.file, buffer)
+
+            print(f"📁 Processing for repository: {uploaded_file.filename}")
+
+            # Extract text
+            raw_text = load_pdf(file_path)
+
+            # Chunk with overlap for better retrieval
+            chunks = chunk_text_with_overlap(raw_text)
+
+            # Extract metadata using LLM
+            metadata = extract_resume_metadata(raw_text)
+
+            # Use extracted name, or fall back to filename
+            student_name = metadata.get("name", "Unknown")
+            if student_name == "Unknown" or not student_name.strip():
+                student_name = os.path.splitext(uploaded_file.filename)[0]
+
+            # Store in repository
+            store_resume_to_repository(student_name, chunks, metadata)
+
+            uploaded_students.append({
+                "name": student_name,
+                "department": metadata.get("department", "Not Specified"),
+                "skills": metadata.get("skills", []),
+                "cgpa": metadata.get("cgpa", "N/A"),
+                "projects": metadata.get("projects", []),
+                "experience_summary": metadata.get("experience_summary", ""),
+                "chunks_stored": len(chunks),
+            })
+
+            print(f"✅ {student_name} added to repository")
+
+        except Exception as e:
+            print(f"❌ Error processing {uploaded_file.filename}: {e}")
+            print(traceback.format_exc())
+            uploaded_students.append({
+                "name": os.path.splitext(uploaded_file.filename)[0],
+                "error": str(e),
+            })
+        finally:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+    return {
+        "message": f"✅ {len(uploaded_students)} resume(s) processed for the repository.",
+        "students": uploaded_students,
+        "total_in_repository": get_student_count(),
+    }
+
+
+@app.post("/repository/search")
+async def search_repository(query: str = Form(...)):
+    """
+    Recruiter search endpoint.
+    Semantically searches all stored resumes, groups by student,
+    and uses Gemini to rank and justify matches.
+    """
+    candidates = search_candidates(query, k=10)
+
+    if not candidates:
+        return {
+            "answer": "⚠️ No resumes in the repository yet. Please upload student resumes first.",
+            "candidates": [],
+        }
+
+    # Build context for AI ranking
+    candidate_summaries = []
+    for name, data in list(candidates.items())[:8]:  # Top 8 for LLM context
+        skills = data["metadata"].get("skills", [])
+        if isinstance(skills, str):
+            skills = [s.strip() for s in skills.split(",") if s.strip()]
+        projects = data["metadata"].get("projects", [])
+        if isinstance(projects, str):
+            projects = [p.strip() for p in projects.split(",") if p.strip()]
+
+        resume_excerpts = "\n".join(data["chunks"][:2])
+        candidate_summaries.append(
+            f"--- Candidate: {name} ---\n"
+            f"Skills: {', '.join(skills) if skills else 'N/A'}\n"
+            f"Projects: {', '.join(projects) if projects else 'N/A'}\n"
+            f"Department: {data['metadata'].get('department', 'N/A')}\n"
+            f"CGPA: {data['metadata'].get('cgpa', 'N/A')}\n"
+            f"Relevance Score: {data['relevance_score']}%\n"
+            f"Resume Excerpt:\n{resume_excerpts}\n"
+        )
+
+    combined = "\n\n".join(candidate_summaries)
+
+    prompt = f"""
+You are an AI Recruitment Assistant for a university department.
+A recruiter has submitted the following requirement:
+
+"{query}"
+
+Here are the candidate profiles retrieved from the department resume repository:
+
+{combined}
+
+Your task:
+1. Rank the candidates from BEST to LEAST matching for this requirement.
+2. For each candidate, provide:
+   - A match score (0-100)
+   - Key matching skills/experience
+   - Why they are a good or poor fit
+3. Provide a brief summary at the top.
+
+Format your response in clean markdown with:
+- A summary paragraph
+- Numbered ranking with candidate details
+- Use **bold** for names, scores, and key highlights
+- Use bullet points for skills matching
+- Be specific — reference actual content from their resumes
+"""
+
+    ai_ranking = llm_call(prompt)
+
+    # Build structured candidate list for frontend cards
+    ranked_candidates = []
+    for name, data in candidates.items():
+        skills = data["metadata"].get("skills", [])
+        if isinstance(skills, str):
+            skills = [s.strip() for s in skills.split(",") if s.strip()]
+        projects = data["metadata"].get("projects", [])
+        if isinstance(projects, str):
+            projects = [p.strip() for p in projects.split(",") if p.strip()]
+
+        ranked_candidates.append({
+            "name": name,
+            "relevance_score": data["relevance_score"],
+            "skills": skills,
+            "projects": projects,
+            "department": data["metadata"].get("department", "N/A"),
+            "cgpa": data["metadata"].get("cgpa", "N/A"),
+            "excerpts": data["chunks"][:2],
+        })
+
+    return {
+        "answer": ai_ranking,
+        "candidates": ranked_candidates,
+    }
+
+
+@app.get("/repository/students")
+async def list_students():
+    """List all students currently in the department repository."""
+    students = get_all_students()
+    return {
+        "students": students,
+        "total": len(students),
+    }
+
+
+@app.delete("/repository/student/{name}")
+async def delete_student(name: str):
+    """Remove a specific student from the repository."""
+    success = remove_student(name)
+    if success:
+        return {"message": f"✅ {name} removed from repository.", "total": get_student_count()}
+    else:
+        return {"message": f"⚠️ Student '{name}' not found in repository.", "total": get_student_count()}
