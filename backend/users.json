@@ -1,0 +1,36 @@
+{
+  "24b01a1275": {
+    "name": "Mounika",
+    "roll_no": "24b01a1275",
+    "department": "IT",
+    "password_hash": "4221228963bd6fdbd0ec8d38f950505c:127102d0e15ed21839bcb23a2711949b5479a6dc969306caff0b3e2505d487e6",
+    "role": "student",
+    "skills": [
+      "c++",
+      "dsa"
+    ],
+    "college_email": "24b01a1275@svecw.edu.in",
+    "passing_out_year": 2028,
+    "year_of_study": 2,
+    "password_is_default": false,
+    "resume_uploaded": true,
+    "conversations": {}
+  },
+  "24b01a1277": {
+    "name": "mounika",
+    "roll_no": "24b01a1277",
+    "department": "IT",
+    "password_hash": "bdbdb91e4404ede0d9317290aff2b526:a7506cdb6ac64336d5bbb482f951ab6adc6b42e9d06d131f75f00fb173ae0ba0",
+    "role": "student",
+    "skills": [
+      "c++",
+      "ds"
+    ],
+    "college_email": "24b01a1275@svecw.edu.in",
+    "passing_out_year": 2028,
+    "year_of_study": 2,
+    "password_is_default": true,
+    "resume_uploaded": false,
+    "conversations": {}
+  }
+}
