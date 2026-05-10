@@ -1,703 +1,533 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import axios from "axios";
-import { FaPaperPlane, FaPlus, FaBars, FaTimes, FaCommentDots, FaCloudUploadAlt, FaExchangeAlt, FaSearch, FaUserGraduate, FaTrashAlt } from "react-icons/fa";
+import { FaPaperPlane, FaBars, FaTimes, FaCloudUploadAlt, FaSearch, FaSignOutAlt, FaMoon, FaSun, FaUserGraduate, FaChartBar, FaDatabase, FaCompass, FaBriefcase, FaFileAlt, FaUsers } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import "./App.css";
 
-// API Base URL — change this when switching between local dev and deployed backend
-const API_BASE = process.env.REACT_APP_API_URL || "https://rag-play-ground.onrender.com";
-
-// Shared axios config for multipart requests (handles Render free-tier cold-start delay)
-const multipartConfig = {
-  headers: { "Content-Type": "multipart/form-data" },
-  timeout: 120000, // 2 minutes — Render free tier can take ~50s to wake up
-};
-
-// Score Ring Component
-function ScoreRing({ score, size = 100, strokeWidth = 8 }) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-  const color = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#ef4444";
-
+/* ========== SCORE RING ========== */
+function ScoreRing({ score, size = 64, strokeWidth = 5 }) {
+  const r = (size - strokeWidth) / 2, circ = 2 * Math.PI * r;
+  const color = score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
   return (
-    <svg width={size} height={size} className="score-ring">
-      <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="rgba(148,163,184,0.12)" strokeWidth={strokeWidth} />
-      <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
-        strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-        transform={`rotate(-90 ${size/2} ${size/2})`} style={{ transition: "stroke-dashoffset 1s ease" }} />
-      <text x="50%" y="50%" textAnchor="middle" dy=".35em" fill={color} fontSize={size * 0.28} fontWeight="700"
-        fontFamily="Inter, sans-serif">{score}</text>
+    <svg width={size} height={size}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="var(--color-border)" strokeWidth={strokeWidth} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+        strokeDasharray={circ} strokeDashoffset={circ - (score/100)*circ}
+        strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{ transition: "stroke-dashoffset 1s ease" }} />
+      <text x="50%" y="50%" textAnchor="middle" dy="0.35em"
+        fill="var(--color-text-primary)" fontSize={size*0.22} fontWeight="700">{score}</text>
     </svg>
   );
 }
 
-// Score Card Component
-function ScoreCard({ scoreData, onClose }) {
-  if (!scoreData) return null;
-  const cats = scoreData.categories || {};
+/* ========== LOGIN PAGE ========== */
+function LoginPage() {
+  const { login } = useAuth();
+  const [form, setForm] = useState({ roll_no: "", password: "" });
+  const [error, setError] = useState("");
+  const [warningMsg, setWarningMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault(); setError(""); setWarningMsg(""); setLoading(true);
+    try {
+      const res = await login(form.roll_no, form.password);
+      if (res.warning) {
+        setWarningMsg(res.warning);
+      }
+    } catch (err) {
+      if (err.response) {
+        const detail = err.response.data?.detail;
+        // Handle Pydantic validation errors (array of objects)
+        if (Array.isArray(detail)) {
+          setError(detail.map(d => d.msg || JSON.stringify(d)).join(", "));
+        } else if (typeof detail === "object" && detail !== null) {
+          setError(detail.msg || JSON.stringify(detail));
+        } else {
+          setError(detail || `Server error: ${err.response.status}`);
+        }
+      } else if (err.request) {
+        setError("Cannot reach backend. Is it running on http://localhost:8000?");
+      } else {
+        setError(err.message || "Something went wrong.");
+      }
+    }
+    setLoading(false);
+  };
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
   return (
-    <div className="score-overlay" onClick={onClose}>
-      <div className="score-card" onClick={e => e.stopPropagation()}>
-        <button className="score-close" onClick={onClose}><FaTimes /></button>
-        <h3>Resume Score</h3>
-        <div className="score-ring-wrap"><ScoreRing score={scoreData.overall || 0} size={140} strokeWidth={10} /></div>
-        <p className="score-summary">{scoreData.summary}</p>
-        <div className="score-categories">
-          {Object.entries(cats).map(([key, val]) => (
-            <div key={key} className="score-cat-row">
-              <div className="score-cat-info">
-                <span className="score-cat-name">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-                <span className="score-cat-comment">{val.comment}</span>
-              </div>
-              <div className="score-cat-bar-wrap">
-                <div className="score-cat-bar" style={{ width: `${(val.score / 20) * 100}%` }}></div>
-              </div>
-              <span className="score-cat-val">{val.score}/20</span>
-            </div>
-          ))}
+    <div className="login-page">
+      <div className="login-bg-orb login-orb-1" />
+      <div className="login-bg-orb login-orb-2" />
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="login-logo">🎓</div>
+          <h1>PlaceAI</h1>
+          <p>AI-Powered Placement & Career Guidance</p>
         </div>
+        <div className="login-tabs">
+          <button className="active">Student Login</button>
+        </div>
+        <form onSubmit={handleSubmit} className="login-form">
+          <input placeholder="Roll Number / Registration ID" value={form.roll_no} onChange={e => set("roll_no", e.target.value)} required />
+          <input placeholder="Password" type="password" value={form.password} onChange={e => set("password", e.target.value)} required />
+          <div className="login-info" style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)", padding: "4px 0 8px", lineHeight: 1.4 }}>
+            🔑 Your account is created by the exam cell. Use your registration number and the default password provided to you.
+          </div>
+          {error && <div className="login-error">{error}</div>}
+          {warningMsg && <div className="login-success" style={{ color: "#f59e0b", fontSize: "0.85rem", padding: "8px 0" }}>{warningMsg}</div>}
+          <button type="submit" className="login-submit" disabled={loading}>
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
       </div>
     </div>
   );
 }
 
-function App() {
-  const [mode, setMode] = useState(null);
-  const [appTab, setAppTab] = useState("coach");
-  const [file, setFile] = useState(null);
-  const [compareFiles, setCompareFiles] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [activeConversationId, setActiveConversationId] = useState(null);
-  const [compareChat, setCompareChat] = useState([]);
+/* ========== STUDENT DASHBOARD ========== */
+function StudentDashboard() {
+  const { user, logout, authHeaders, API } = useAuth();
+  const [tab, setTab] = useState("mentor");
+  const [chat, setChat] = useState([]);
   const [input, setInput] = useState("");
-  const [uploadMessage, setUploadMessage] = useState("");
-  const [compareUploadMessage, setCompareUploadMessage] = useState("");
-  const [compareResumeNames, setCompareResumeNames] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sidebar, setSidebar] = useState(true);
+  const [theme, setTheme] = useState("dark");
+  const [file, setFile] = useState(null);
+  const [uploadMsg, setUploadMsg] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [resumeReady, setResumeReady] = useState(false);
-  const [compareReady, setCompareReady] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [scoreData, setScoreData] = useState(null);
-  const [scoreLoading, setScoreLoading] = useState(false);
-  const [showScore, setShowScore] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [atsData, setAtsData] = useState(null);
+  const [atsLoading, setAtsLoading] = useState(false);
+  const [careerGoal, setCareerGoal] = useState("");
+  const [targetCompany, setTargetCompany] = useState("");
+  const [targetRole, setTargetRole] = useState("");
+  const chatEnd = useRef(null);
+  const fileRef = useRef(null);
 
-  // Recruit tab state
-  const [repoFiles, setRepoFiles] = useState([]);
-  const [repoStudents, setRepoStudents] = useState([]);
-  const [repoUploading, setRepoUploading] = useState(false);
-  const [repoUploadMsg, setRepoUploadMsg] = useState("");
-  const [repoSearching, setRepoSearching] = useState(false);
-  const [repoQuery, setRepoQuery] = useState("");
-  const [repoAnswer, setRepoAnswer] = useState("");
-  const [repoCandidates, setRepoCandidates] = useState([]);
-  const [repoExpanded, setRepoExpanded] = useState(null);
-
-  const chatEndRef = useRef(null);
-  const compareChatEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const compareFileInputRef = useRef(null);
-  const repoFileInputRef = useRef(null);
-
-  const activeConversation = conversations.find(c => c.id === activeConversationId);
-  const chat = activeConversation ? activeConversation.messages : [];
-
-  useEffect(() => {
-    if (appTab === "coach") chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    else compareChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chat, compareChat, appTab]);
-
-  const startNewChat = useCallback(() => {
-    const newConv = { id: Date.now(), title: "New Chat", messages: [],
-      createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
-    setConversations(prev => [newConv, ...prev]);
-    setActiveConversationId(newConv.id);
-    setSidebarOpen(false);
-  }, []);
-
-  // --- Recruit tab functions ---
-  const uploadToRepository = async () => {
-    if (repoFiles.length === 0) return;
-    setRepoUploading(true); setRepoUploadMsg("");
-    try {
-      const fd = new FormData();
-      for (const f of repoFiles) fd.append("files", f);
-      const res = await axios.post(`${API_BASE}/repository/upload`, fd, { ...multipartConfig, timeout: 300000 });
-      setRepoUploadMsg(res.data.message);
-      setRepoStudents(prev => {
-        const existing = prev.map(s => s.name);
-        const newStudents = (res.data.students || []).filter(s => !s.error && !existing.includes(s.name));
-        return [...prev, ...newStudents];
-      });
-      // Also refresh full list
-      const listRes = await axios.get(`${API_BASE}/repository/students`, { timeout: 30000 });
-      setRepoStudents(listRes.data.students || []);
-      setRepoFiles([]);
-      if (repoFileInputRef.current) repoFileInputRef.current.value = "";
-    } catch { setRepoUploadMsg("❌ Upload failed."); }
-    setRepoUploading(false);
-  };
-
-  const searchRepository = async () => {
-    if (!repoQuery.trim() || repoSearching) return;
-    setRepoSearching(true); setRepoAnswer(""); setRepoCandidates([]);
-    try {
-      const fd = new FormData(); fd.append("query", repoQuery);
-      const res = await axios.post(`${API_BASE}/repository/search`, fd, multipartConfig);
-      setRepoAnswer(res.data.answer || "");
-      setRepoCandidates(res.data.candidates || []);
-    } catch { setRepoAnswer("⚠️ Search failed. Please try again."); }
-    setRepoSearching(false);
-  };
-
-  const removeStudent = async (name) => {
-    try {
-      await axios.delete(`${API_BASE}/repository/student/${encodeURIComponent(name)}`, { timeout: 30000 });
-      setRepoStudents(prev => prev.filter(s => s.name !== name));
-    } catch { /* ignore */ }
-  };
-
-  const fetchScore = async () => {
-    setScoreLoading(true);
-    try {
-      const res = await axios.post(`${API_BASE}/score`, null, { timeout: 120000 });
-      if (!res.data.error) { setScoreData(res.data); setShowScore(true); }
-    } catch (e) { /* ignore */ }
-    setScoreLoading(false);
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next); document.documentElement.setAttribute("data-theme", next);
   };
 
   const uploadResume = async () => {
     if (!file) return;
-    setUploading(true); setUploadMessage("");
+    setUploading(true); setUploadMsg("");
+    const fd = new FormData(); fd.append("file", file);
     try {
-      const fd = new FormData(); fd.append("file", file);
-      const uploadingName = file.name;
-      const res = await axios.post(`${API_BASE}/upload`, fd, multipartConfig);
-      setUploadMessage(res.data.message); setResumeReady(true);
-      setUploadedFileName(uploadingName);
-      setFile(null); setScoreData(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch { setUploadMessage("❌ Upload failed."); }
-    setUploading(false);
-  };
-
-  const uploadCompareResumes = async () => {
-    if (compareFiles.length < 2) return;
-    setUploading(true); setCompareUploadMessage("");
-    try {
-      const fd = new FormData();
-      for (const f of compareFiles) fd.append("files", f);
-      const res = await axios.post(`${API_BASE}/upload-compare`, fd, multipartConfig);
-      setCompareUploadMessage(res.data.message);
-      setCompareResumeNames(res.data.resumes || []);
-      setCompareReady(true); setCompareFiles([]); setCompareChat([]);
-      if (compareFileInputRef.current) compareFileInputRef.current.value = "";
-    } catch { setCompareUploadMessage("❌ Upload failed."); }
+      const r = await axios.post(`${API}/student/upload-resume`, fd, {
+        headers: { ...authHeaders.headers, "Content-Type": "multipart/form-data" }, timeout: 120000,
+      });
+      setUploadMsg(r.data.message); setFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+    } catch { setUploadMsg("❌ Upload failed."); }
     setUploading(false);
   };
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-    let currentId = activeConversationId;
-    if (!currentId) {
-      const newConv = { id: Date.now(), title: input.slice(0, 40), messages: [],
-        createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
-      setConversations(prev => [newConv, ...prev]);
-      setActiveConversationId(newConv.id); currentId = newConv.id;
-    }
-    const userMsg = input; setInput(""); setLoading(true);
-    setConversations(prev => prev.map(c => c.id === currentId
-      ? { ...c, messages: [...c.messages, { user: userMsg, bot: null }], title: c.messages.length === 0 ? userMsg.slice(0, 40) : c.title }
-      : c));
+    const q = input; setInput(""); setLoading(true);
+    setChat(p => [...p, { user: q, bot: null }]);
     try {
-      const fd = new FormData(); fd.append("question", userMsg); fd.append("mode", mode);
-      const res = await axios.post(`${API_BASE}/chat`, fd, multipartConfig);
-      setConversations(prev => prev.map(c => {
-        if (c.id !== currentId) return c;
-        const msgs = [...c.messages]; msgs[msgs.length - 1] = { user: userMsg, bot: res.data.answer }; return { ...c, messages: msgs };
-      }));
-    } catch {
-      setConversations(prev => prev.map(c => {
-        if (c.id !== currentId) return c;
-        const msgs = [...c.messages]; msgs[msgs.length - 1] = { user: userMsg, bot: "⚠️ Something went wrong." }; return { ...c, messages: msgs };
-      }));
-    }
+      const fd = new FormData();
+      fd.append("question", q); fd.append("mode", tab);
+      if (careerGoal) fd.append("career_goal", careerGoal);
+      if (targetCompany) fd.append("target_company", targetCompany);
+      if (targetRole) fd.append("target_role", targetRole);
+      const r = await axios.post(`${API}/student/chat`, fd, {
+        headers: { ...authHeaders.headers, "Content-Type": "multipart/form-data" }, timeout: 120000,
+      });
+      setChat(p => { const c = [...p]; c[c.length-1].bot = r.data.answer; return c; });
+    } catch { setChat(p => { const c = [...p]; c[c.length-1].bot = "⚠️ Error."; return c; }); }
     setLoading(false);
+    setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
 
-  const sendCompareMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input; setInput(""); setLoading(true);
-    setCompareChat(prev => [...prev, { user: userMsg, bot: null }]);
+  const fetchATS = async () => {
+    setAtsLoading(true);
     try {
-      const fd = new FormData(); fd.append("question", userMsg);
-      const res = await axios.post(`${API_BASE}/compare`, fd, multipartConfig);
-      setCompareChat(prev => { const m = [...prev]; m[m.length-1] = { user: userMsg, bot: res.data.answer }; return m; });
-    } catch {
-      setCompareChat(prev => { const m = [...prev]; m[m.length-1] = { user: userMsg, bot: "⚠️ Something went wrong." }; return m; });
-    }
-    setLoading(false);
+      const r = await axios.post(`${API}/student/ats-score`, {}, authHeaders);
+      setAtsData(r.data);
+    } catch { setAtsData({ error: "Failed to fetch ATS score." }); }
+    setAtsLoading(false);
   };
 
-  const handleSend = () => { if (appTab === "coach") sendMessage(); else sendCompareMessage(); };
-  const handleKeyDown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } };
-  const handleDragOver = (e) => { e.preventDefault(); setDragOver(true); };
-  const handleDragLeave = () => setDragOver(false);
-  const handleDrop = (e) => {
-    e.preventDefault(); setDragOver(false);
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.type === "application/pdf");
-    if (droppedFiles.length === 0) return;
-    if (appTab === "coach") { setFile(droppedFiles[0]); }
-    else if (appTab === "compare") { setCompareFiles(prev => [...prev, ...droppedFiles]); }
-    else if (appTab === "recruit") { setRepoFiles(prev => [...prev, ...droppedFiles]); }
-  };
-
-  const modeLabels = { mentor: "👩‍🏫 Mentor", recruiter: "🧑‍💼 Recruiter", interview: "🎯 Interview" };
-
-  const suggestionsByMode = {
+  const suggestions = {
     mentor: [
-      { icon: "💯", text: "Score my resume out of 100" },
-      { icon: "💪", text: "What are my strengths?" },
-      { icon: "📈", text: "Detect skill gaps for product companies" },
-      { icon: "🏢", text: "How ready am I for a backend role?" },
-      { icon: "✍️", text: "Improve my project descriptions" },
-      { icon: "📋", text: "Analyze my projects section" },
+      { icon: "🚀", text: "I want to become an AI Engineer" },
+      { icon: "💻", text: "Guide me for backend development career" },
+      { icon: "📊", text: "What skills do I need for data science?" },
+      { icon: "🗺️", text: "Create a 6-month placement preparation plan" },
     ],
-    recruiter: [
-      { icon: "💯", text: "Score my resume out of 100" },
-      { icon: "🔍", text: "Detect skill gaps for top tech companies" },
-      { icon: "🏢", text: "How good is my resume for product companies?" },
-      { icon: "🎯", text: "Evaluate me for a full-stack developer role" },
-      { icon: "✍️", text: "Rewrite my experience section" },
-      { icon: "🚩", text: "What red flags do you see?" },
+    interview_prep: [
+      { icon: "🏢", text: "Prepare me for Amazon SDE interview" },
+      { icon: "💻", text: "Google technical round questions" },
+      { icon: "🎯", text: "Common DSA questions for placements" },
+      { icon: "🧠", text: "Behavioral interview preparation" },
     ],
-    interview: [
-      { icon: "🎤", text: "Start my mock interview" },
-      { icon: "💻", text: "Ask me technical questions" },
-      { icon: "🧠", text: "Ask behavioral questions about my projects" },
-      { icon: "🎯", text: "Quiz me on my skills" },
+    ats: [
+      { icon: "💯", text: "Score my resume for ATS compatibility" },
+      { icon: "🔍", text: "What keywords am I missing?" },
+      { icon: "✍️", text: "How can I improve my resume?" },
     ],
-    compare: [
-      { icon: "⚖️", text: "Compare both resumes side by side" },
-      { icon: "🏆", text: "Which resume is stronger overall?" },
-      { icon: "🔍", text: "What skills does each resume highlight?" },
-      { icon: "📊", text: "Rate each resume out of 10" },
-    ],
-    recruit: [
-      { icon: "💻", text: "Find students suitable for backend development internship" },
-      { icon: "🤖", text: "Students with AI/ML project experience" },
-      { icon: "⚛️", text: "React and frontend development experience" },
-      { icon: "🏆", text: "Hackathon winners with strong Python skills" },
-      { icon: "📊", text: "Data science and analytics experience" },
-      { icon: "🌐", text: "Full-stack developers with API experience" },
+    resume_match: [
+      { icon: "⚖️", text: "Compare me with placed alumni" },
+      { icon: "📈", text: "What's my skill gap vs successful candidates?" },
+      { icon: "🎯", text: "Am I ready for placement season?" },
     ],
   };
 
-  const currentSuggestions = appTab === "compare" ? suggestionsByMode.compare : appTab === "recruit" ? suggestionsByMode.recruit : (suggestionsByMode[mode] || suggestionsByMode.mentor);
-  const currentChat = appTab === "coach" ? chat : compareChat;
-  const currentEndRef = appTab === "coach" ? chatEndRef : compareChatEndRef;
+  const tabLabels = {
+    mentor: { icon: <FaCompass />, label: "Career Guidance" },
+    interview_prep: { icon: <FaBriefcase />, label: "Interview Prep" },
+    ats: { icon: <FaFileAlt />, label: "ATS Score" },
+    resume_match: { icon: <FaUsers />, label: "Resume Match" },
+  };
 
-  // ---- LANDING ----
-  if (!mode) {
-    return (
-      <div className="landing-container">
-        <div className="landing-brand">
-          <div className="landing-brand-icon">🤖</div>
-          <h1>AI Resume Coach</h1>
-        </div>
-        <p className="landing-subtitle">Enterprise-grade AI-powered resume analysis</p>
-        <div className="landing-modes">
-          <div className="mode-card" onClick={() => setMode("mentor")} id="mode-mentor">
-            <div className="mode-card-icon">👩‍🏫</div>
-            <h3>Mentor Mode</h3>
-            <p>Personalized guidance, scoring, skill gap detection, and actionable improvement tips.</p>
-          </div>
-          <div className="mode-card" onClick={() => setMode("recruiter")} id="mode-recruiter">
-            <div className="mode-card-icon">🧑‍💼</div>
-            <h3>Recruiter Mode</h3>
-            <p>Hiring manager evaluation — screening criteria, red flags, role readiness analysis.</p>
-          </div>
-          <div className="mode-card" onClick={() => setMode("interview")} id="mode-interview">
-            <div className="mode-card-icon">🎯</div>
-            <h3>Interview Mode</h3>
-            <p>Mock interview based on your resume — technical, behavioral, and project deep-dives.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const curSuggestions = suggestions[tab] || suggestions.mentor;
 
-  // ---- MAIN APP ----
   return (
-    <div className="app-layout">
-      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
-      {showScore && <ScoreCard scoreData={scoreData} onClose={() => setShowScore(false)} />}
-
-      {/* SIDEBAR */}
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+    <div className="app-container">
+      <aside className={`sidebar ${sidebar ? "open" : ""}`}>
         <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <div className="sidebar-logo">🤖</div>
-            <div className="sidebar-brand-text"><h2>Resume Coach</h2><span>Enterprise AI</span></div>
-          </div>
+          <div className="sidebar-brand"><div className="sidebar-logo">🎓</div><div className="sidebar-brand-text"><h2>PlaceAI</h2><span>Student Portal</span></div></div>
         </div>
-
-        <div className="sidebar-tab-section">
-          <div className="sidebar-tab-group">
-            <button className={`sidebar-tab-btn ${appTab === "coach" ? "active" : ""}`} onClick={() => setAppTab("coach")} id="tab-coach">💬 Coach</button>
-            <button className={`sidebar-tab-btn ${appTab === "compare" ? "active" : ""}`} onClick={() => setAppTab("compare")} id="tab-compare"><FaExchangeAlt style={{ marginRight: 4 }} /> Compare</button>
-            <button className={`sidebar-tab-btn ${appTab === "recruit" ? "active" : ""}`} onClick={() => setAppTab("recruit")} id="tab-recruit"><FaSearch style={{ marginRight: 4 }} /> Recruit</button>
-          </div>
+        <div className="sidebar-nav">
+          {Object.entries(tabLabels).map(([k, v]) => (
+            <button key={k} className={`sidebar-nav-btn ${tab === k ? "active" : ""}`} onClick={() => { setTab(k); setChat([]); setAtsData(null); }}>
+              {v.icon}<span>{v.label}</span>
+            </button>
+          ))}
         </div>
-
-        {appTab === "coach" && (
-          <>
-            <button className="new-chat-btn" onClick={startNewChat} id="btn-new-chat"><FaPlus /> New Conversation</button>
-
-            <div className="sidebar-section-title">History</div>
-            <div className="conversation-list">
-              {conversations.length === 0 && <div style={{ padding: 12, color: "var(--color-text-tertiary)", fontSize: "var(--text-xs)" }}>No conversations yet</div>}
-              {conversations.map(conv => (
-                <div key={conv.id} className={`conversation-item ${conv.id === activeConversationId ? "active" : ""}`}
-                  onClick={() => { setActiveConversationId(conv.id); setSidebarOpen(false); }}>
-                  <span className="conversation-item-icon"><FaCommentDots /></span>
-                  <span className="conversation-item-text">{conv.title}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="sidebar-mode-section">
-              <div className="sidebar-section-title" style={{ padding: "0 0 8px 0" }}>Mode</div>
-              <div className="mode-toggle-group">
-                {["mentor", "recruiter", "interview"].map(m => (
-                  <button key={m} className={`mode-toggle-btn ${mode === m ? "active" : ""}`} onClick={() => setMode(m)} id={`toggle-${m}`}>
-                    {modeLabels[m]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="sidebar-upload">
-              <div className="sidebar-section-title" style={{ padding: "0 0 8px 0" }}>Resume</div>
-              <div className={`upload-zone ${dragOver ? "drag-over" : ""}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-                <input type="file" accept=".pdf" ref={fileInputRef} onChange={(e) => setFile(e.target.files[0])} id="file-upload" />
-                <span className="upload-zone-icon"><FaCloudUploadAlt /></span>
-                <div className="upload-zone-text">{file ? file.name : (uploadedFileName ? `📄 ${uploadedFileName} loaded ✅` : "Drop PDF here")}</div>
-                <div className="upload-zone-hint">{uploadedFileName && !file ? "drop a new PDF to replace" : "or click to browse"}</div>
-              </div>
-              {file && (
-                <div className="upload-actions">
-                  <span className="selected-file">📄 {file.name}</span>
-                  <button className="upload-btn" onClick={uploadResume} disabled={uploading} id="btn-upload">{uploading ? "Uploading…" : "Upload"}</button>
-                </div>
-              )}
-              {uploadMessage && <div className="upload-status">{uploadMessage}</div>}
-              {resumeReady && (
-                <button className="score-btn" onClick={fetchScore} disabled={scoreLoading} id="btn-score">
-                  {scoreLoading ? "Analyzing…" : "💯 Get Resume Score"}
-                </button>
-              )}
-            </div>
-          </>
-        )}
-
-        {appTab === "compare" && (
-          <div className="sidebar-upload" style={{ flex: 1, overflow: "auto" }}>
-            <div className="sidebar-section-title" style={{ padding: "0 0 8px 0" }}>Upload Resumes to Compare</div>
-            <div className={`upload-zone ${dragOver ? "drag-over" : ""}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-              <input type="file" accept=".pdf" multiple ref={compareFileInputRef}
-                onChange={(e) => { setCompareFiles(prev => [...prev, ...Array.from(e.target.files)]); }} id="compare-file-upload" />
-              <span className="upload-zone-icon"><FaCloudUploadAlt /></span>
-              <div className="upload-zone-text">Drop PDFs here</div>
-              <div className="upload-zone-hint">Select 2 or more resumes</div>
-            </div>
-            {compareFiles.length > 0 && (
-              <div className="compare-file-list">
-                {compareFiles.map((f, i) => (
-                  <div key={i} className="compare-file-item">
-                    <span className="compare-file-name">📄 {f.name}</span>
-                    <button className="compare-file-remove" onClick={() => setCompareFiles(prev => prev.filter((_,j) => j!==i))}><FaTimes /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {compareFiles.length >= 2 && (
-              <button className="upload-btn compare-upload-btn" onClick={uploadCompareResumes} disabled={uploading} id="btn-compare-upload">
-                {uploading ? "Processing…" : `Compare ${compareFiles.length} Resumes`}
-              </button>
-            )}
-            {compareFiles.length === 1 && <div className="compare-hint">Add at least 1 more resume to compare</div>}
-            {compareUploadMessage && <div className="upload-status">{compareUploadMessage}</div>}
-            {compareReady && compareResumeNames.length > 0 && (
-              <div className="compare-loaded-resumes">
-                <div className="sidebar-section-title" style={{ padding: "12px 0 6px 0" }}>Loaded for Comparison</div>
-                {compareResumeNames.map((name, i) => (
-                  <div key={i} className="compare-resume-badge"><span className="compare-resume-dot"></span>{name}</div>
-                ))}
-              </div>
-            )}
+        <div className="sidebar-upload" style={{ flex: 1, overflow: "auto", padding: "var(--space-4)" }}>
+          <div className="sidebar-section-title">Upload Resume</div>
+          <div className="upload-zone">
+            <input type="file" accept=".pdf" ref={fileRef} onChange={e => setFile(e.target.files[0])} />
+            <span className="upload-zone-icon"><FaCloudUploadAlt /></span>
+            <div className="upload-zone-text">{file ? file.name : "Drop PDF here"}</div>
           </div>
-        )}
+          {file && <button className="upload-btn" onClick={uploadResume} disabled={uploading}>{uploading ? "Uploading..." : "Upload Resume"}</button>}
+          {uploadMsg && <div className="upload-status">{uploadMsg}</div>}
 
-        {appTab === "recruit" && (
-          <div className="sidebar-upload" style={{ flex: 1, overflow: "auto" }}>
-            <div className="sidebar-section-title" style={{ padding: "0 0 8px 0" }}>Upload Department Resumes</div>
-            <div className={`upload-zone ${dragOver ? "drag-over" : ""}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-              <input type="file" accept=".pdf" multiple ref={repoFileInputRef}
-                onChange={(e) => { setRepoFiles(prev => [...prev, ...Array.from(e.target.files)]); }} id="repo-file-upload" />
-              <span className="upload-zone-icon"><FaCloudUploadAlt /></span>
-              <div className="upload-zone-text">Drop student resumes here</div>
-              <div className="upload-zone-hint">Upload multiple PDFs at once</div>
+          {tab === "interview_prep" && (
+            <div className="sidebar-context-fields">
+              <div className="sidebar-section-title" style={{marginTop: 12}}>Interview Context</div>
+              <input placeholder="Target Company" value={targetCompany} onChange={e => setTargetCompany(e.target.value)} className="context-input" />
+              <input placeholder="Target Role" value={targetRole} onChange={e => setTargetRole(e.target.value)} className="context-input" />
             </div>
-            {repoFiles.length > 0 && (
-              <div className="compare-file-list">
-                {repoFiles.map((f, i) => (
-                  <div key={i} className="compare-file-item">
-                    <span className="compare-file-name">📄 {f.name}</span>
-                    <button className="compare-file-remove" onClick={() => setRepoFiles(prev => prev.filter((_,j) => j!==i))}><FaTimes /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {repoFiles.length > 0 && (
-              <button className="upload-btn compare-upload-btn" onClick={uploadToRepository} disabled={repoUploading} id="btn-repo-upload">
-                {repoUploading ? "Processing…" : `Upload ${repoFiles.length} Resume(s)`}
-              </button>
-            )}
-            {repoUploadMsg && <div className="upload-status">{repoUploadMsg}</div>}
-
-            {repoStudents.length > 0 && (
-              <div className="compare-loaded-resumes">
-                <div className="sidebar-section-title" style={{ padding: "12px 0 6px 0" }}>
-                  <FaUserGraduate style={{ marginRight: 6 }} /> Student Repository ({repoStudents.length})
-                </div>
-                {repoStudents.map((s, i) => (
-                  <div key={i} className="repo-student-card">
-                    <div className="repo-student-info">
-                      <span className="compare-resume-dot"></span>
-                      <span className="repo-student-name">{s.name}</span>
-                    </div>
-                    <div className="repo-student-skills">
-                      {(s.skills || []).slice(0, 3).map((sk, j) => (
-                        <span key={j} className="repo-skill-tag">{sk}</span>
-                      ))}
-                      {(s.skills || []).length > 3 && <span className="repo-skill-more">+{s.skills.length - 3}</span>}
-                    </div>
-                    <button className="repo-student-remove" onClick={() => removeStudent(s.name)} title="Remove"><FaTrashAlt /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+          {tab === "mentor" && (
+            <div className="sidebar-context-fields">
+              <div className="sidebar-section-title" style={{marginTop: 12}}>Career Goal</div>
+              <input placeholder="e.g. AI Engineer" value={careerGoal} onChange={e => setCareerGoal(e.target.value)} className="context-input" />
+            </div>
+          )}
+        </div>
+        <div className="sidebar-footer">
+          <div className="sidebar-user"><FaUserGraduate /><span>{user?.name}</span><span className="sidebar-dept">{user?.department}</span></div>
+          <button className="sidebar-logout" onClick={logout}><FaSignOutAlt /> Logout</button>
+        </div>
       </aside>
 
-      {/* MAIN */}
       <main className="main-content">
         <div className="top-bar">
           <div className="top-bar-left">
-            <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} id="btn-sidebar-toggle">
-              {sidebarOpen ? <FaTimes /> : <FaBars />}
-            </button>
-            <span className="top-bar-title">
-              {appTab === "coach" ? (modeLabels[mode] + " Mode") : appTab === "compare" ? "⚖️ Resume Comparison" : "🎯 AI Recruitment Assistant"}
-            </span>
+            <button className="sidebar-toggle" onClick={() => setSidebar(!sidebar)}>{sidebar ? <FaTimes /> : <FaBars />}</button>
+            <span className="top-bar-title">{tabLabels[tab]?.icon} {tabLabels[tab]?.label}</span>
           </div>
           <div className="top-bar-right">
-            {scoreData && appTab === "coach" && (
-              <button className="top-score-pill" onClick={() => setShowScore(true)}>
-                💯 Score: {scoreData.overall}
-              </button>
-            )}
-            <div className={`status-badge ${(appTab === "coach" ? resumeReady : appTab === "compare" ? compareReady : repoStudents.length > 0) ? "ready" : ""}`}>
-              <span className="status-dot"></span>
-              {appTab === "coach" ? (resumeReady ? "Resume Loaded" : "No Resume") : appTab === "compare" ? (compareReady ? `${compareResumeNames.length} Resumes` : "No Resumes") : (repoStudents.length > 0 ? `${repoStudents.length} Students` : "Empty Repository")}
-            </div>
+            <button className="theme-toggle" onClick={toggleTheme}>{theme === "dark" ? <FaSun /> : <FaMoon />}</button>
           </div>
         </div>
 
-        {/* ---- RECRUIT TAB MAIN ---- */}
-        {appTab === "recruit" ? (
-          <>
-            {!repoAnswer && repoCandidates.length === 0 && !repoSearching ? (
-              <div className="welcome-container">
-                <div className="welcome-icon">🎯</div>
-                <h2>AI Recruitment Assistant</h2>
-                <p>Upload department resumes, then search for the best matching candidates.</p>
-                <div className="welcome-features">
-                  <div className="feature-card"><span className="feature-card-icon">📑</span><h4>Resume Repository</h4><p>Store all department student resumes.</p></div>
-                  <div className="feature-card"><span className="feature-card-icon">🔍</span><h4>Semantic Search</h4><p>Find candidates by skills, not keywords.</p></div>
-                  <div className="feature-card"><span className="feature-card-icon">🏆</span><h4>AI Ranking</h4><p>Gemini ranks and justifies top matches.</p></div>
+        {tab === "ats" && !atsData && chat.length === 0 ? (
+          <div className="welcome-container">
+            <div className="welcome-icon">📋</div>
+            <h2>ATS Resume Analysis</h2>
+            <p>Upload your resume and get a detailed ATS compatibility score.</p>
+            <button className="ats-fetch-btn" onClick={fetchATS} disabled={atsLoading}>{atsLoading ? "Analyzing..." : "🔍 Analyze My Resume"}</button>
+            <div className="welcome-features">
+              {curSuggestions.map((s, i) => (
+                <button key={i} className="feature-card" onClick={() => { setInput(s.text); setTab("ats"); }}>
+                  <span className="feature-card-icon">{s.icon}</span><h4>{s.text}</h4>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : tab === "ats" && atsData && !atsData.error ? (
+          <div className="ats-results">
+            <div className="ats-score-card">
+              <ScoreRing score={atsData.overall} size={120} strokeWidth={8} />
+              <h3>ATS Score: {atsData.overall}/100</h3>
+              <p>{atsData.summary}</p>
+            </div>
+            <div className="ats-categories">
+              {atsData.categories && Object.entries(atsData.categories).map(([k, v]) => (
+                <div key={k} className="ats-cat-card">
+                  <div className="ats-cat-header"><span className="ats-cat-name">{k}</span><span className="ats-cat-score">{v.score}/20</span></div>
+                  <div className="ats-cat-bar"><div className="ats-cat-fill" style={{ width: `${(v.score/20)*100}%` }} /></div>
+                  <p className="ats-cat-comment">{v.comment}</p>
                 </div>
-              </div>
-            ) : (
-              <div className="chat-window" id="recruit-results">
-                {repoSearching && (
-                  <div className="typing-indicator">
-                    <div className="avatar bot-avatar">AI</div>
-                    <div className="typing-dots"><span></span><span></span><span></span></div>
-                  </div>
-                )}
-                {repoCandidates.length > 0 && (
-                  <div className="recruit-candidates">
-                    <div className="recruit-candidates-header">Top Matching Candidates</div>
-                    <div className="recruit-cards-grid">
-                      {repoCandidates.map((c, i) => (
-                        <div key={i} className={`recruit-card ${repoExpanded === i ? "expanded" : ""}`} onClick={() => setRepoExpanded(repoExpanded === i ? null : i)}>
-                          <div className="recruit-card-top">
-                            <div className="recruit-card-rank">#{i + 1}</div>
-                            <div className="recruit-card-info">
-                              <div className="recruit-card-name">{c.name}</div>
-                              <div className="recruit-card-dept">{c.department} {c.cgpa !== "N/A" ? `• CGPA: ${c.cgpa}` : ""}</div>
-                            </div>
-                            <div className="recruit-card-score-wrap">
-                              <ScoreRing score={c.relevance_score} size={56} strokeWidth={5} />
-                            </div>
-                          </div>
-                          <div className="recruit-card-skills">
-                            {(c.skills || []).slice(0, 6).map((sk, j) => (
-                              <span key={j} className="recruit-skill-tag">{sk}</span>
-                            ))}
-                            {(c.skills || []).length > 6 && <span className="recruit-skill-more">+{c.skills.length - 6}</span>}
-                          </div>
-                          {(c.projects || []).length > 0 && (
-                            <div className="recruit-card-projects">
-                              {(c.projects || []).slice(0, 3).map((p, j) => (
-                                <span key={j} className="recruit-project-tag">📁 {p}</span>
-                              ))}
-                            </div>
-                          )}
-                          {repoExpanded === i && c.excerpts && (
-                            <div className="recruit-card-excerpts">
-                              <div className="recruit-excerpt-title">Resume Excerpts</div>
-                              {c.excerpts.map((ex, j) => (
-                                <p key={j} className="recruit-excerpt-text">{ex.substring(0, 300)}…</p>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {repoAnswer && (
-                  <div className="chat-row bot-row" style={{ maxWidth: "100%" }}>
-                    <div className="avatar bot-avatar">AI</div>
-                    <div className="bot-message" style={{ maxWidth: "100%" }}><ReactMarkdown>{repoAnswer}</ReactMarkdown></div>
-                  </div>
-                )}
-              </div>
+              ))}
+            </div>
+            {atsData.keywords_found?.length > 0 && (
+              <div className="ats-keywords"><h4>✅ Keywords Found</h4><div className="ats-tags">{atsData.keywords_found.map((k,i) => <span key={i} className="ats-tag found">{k}</span>)}</div></div>
             )}
-
-            <div className="suggestions-section">
-              <div className="suggestions-label">Suggested Searches</div>
-              <div className="suggestions-chips">
-                {currentSuggestions.map((s, i) => (
-                  <button key={i} className="suggestion-chip" onClick={() => setRepoQuery(s.text)} id={`recruit-suggestion-${i}`}>
-                    <span className="suggestion-chip-icon">{s.icon}</span>{s.text}
-                  </button>
-                ))}
-              </div>
+            {atsData.keywords_missing?.length > 0 && (
+              <div className="ats-keywords"><h4>❌ Missing Keywords</h4><div className="ats-tags">{atsData.keywords_missing.map((k,i) => <span key={i} className="ats-tag missing">{k}</span>)}</div></div>
+            )}
+            <button className="ats-fetch-btn" onClick={() => setAtsData(null)} style={{marginTop: 16}}>← Back</button>
+          </div>
+        ) : chat.length === 0 ? (
+          <div className="welcome-container">
+            <div className="welcome-icon">{tab === "mentor" ? "🧭" : tab === "interview_prep" ? "🎯" : "⚖️"}</div>
+            <h2>{tabLabels[tab]?.label}</h2>
+            <p>Ask questions powered by our institutional knowledge base of alumni profiles, interview experiences, and career roadmaps.</p>
+            <div className="welcome-features">
+              {curSuggestions.map((s, i) => (
+                <button key={i} className="feature-card" onClick={() => setInput(s.text)}>
+                  <span className="feature-card-icon">{s.icon}</span><h4>{s.text}</h4>
+                </button>
+              ))}
             </div>
-
-            <div className="input-section">
-              <div className="input-wrapper">
-                <input value={repoQuery} onChange={(e) => setRepoQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); searchRepository(); } }}
-                  placeholder="Describe your ideal candidate…"
-                  disabled={repoSearching} id="recruit-input" />
-                <button className="send-btn" onClick={searchRepository} disabled={!repoQuery.trim() || repoSearching} id="btn-recruit-search"><FaSearch /></button>
-              </div>
-              <div className="input-hint">Press <kbd>Enter</kbd> to search</div>
-            </div>
-          </>
+          </div>
         ) : (
-          <>
-            {currentChat.length === 0 ? (
-              <div className="welcome-container">
-                <div className="welcome-icon">{appTab === "coach" ? (mode === "interview" ? "🎯" : "✨") : "⚖️"}</div>
-                <h2>{appTab === "coach" ? (mode === "interview" ? "Mock Interview" : "Welcome to Resume Coach") : "Resume Comparison"}</h2>
-                <p>{appTab === "coach"
-                  ? (mode === "interview" ? "Upload your resume, then start a mock interview session." : "Upload your resume and start a conversation to get AI-powered insights.")
-                  : "Upload 2 or more resumes from the sidebar, then ask questions to compare them."}</p>
-                <div className="welcome-features">
-                  {appTab === "coach" ? (
-                    mode === "interview" ? (
-                      <>
-                        <div className="feature-card"><span className="feature-card-icon">🎤</span><h4>Project Deep-Dives</h4><p>Explain your projects, challenges, and decisions.</p></div>
-                        <div className="feature-card"><span className="feature-card-icon">💻</span><h4>Technical Questions</h4><p>Technology choices, architecture, and implementation.</p></div>
-                        <div className="feature-card"><span className="feature-card-icon">🧠</span><h4>Behavioral</h4><p>Situational questions based on your experience.</p></div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="feature-card"><span className="feature-card-icon">💯</span><h4>Resume Score</h4><p>Get a detailed score breakdown out of 100.</p></div>
-                        <div className="feature-card"><span className="feature-card-icon">🔍</span><h4>Skill Gap Detection</h4><p>Find missing skills for your target role.</p></div>
-                        <div className="feature-card"><span className="feature-card-icon">✍️</span><h4>Resume Rewriter</h4><p>Before/after improvements for every section.</p></div>
-                      </>
-                    )
-                  ) : (
-                    <>
-                      <div className="feature-card"><span className="feature-card-icon">📑</span><h4>Multi-Resume</h4><p>Upload and analyze multiple resumes.</p></div>
-                      <div className="feature-card"><span className="feature-card-icon">⚖️</span><h4>Side by Side</h4><p>Compare qualifications head-to-head.</p></div>
-                      <div className="feature-card"><span className="feature-card-icon">🏆</span><h4>Best Match</h4><p>Find the best resume for a role.</p></div>
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="chat-window" id="chat-window">
-                {currentChat.map((msg, index) => (
-                  <React.Fragment key={index}>
-                    <div className="chat-row user-row">
-                      <div className="avatar user-avatar">U</div>
-                      <div className="user-message">{msg.user}</div>
-                    </div>
-                    {msg.bot && (
-                      <div className="chat-row bot-row">
-                        <div className="avatar bot-avatar">AI</div>
-                        <div className="bot-message"><ReactMarkdown>{msg.bot}</ReactMarkdown></div>
-                      </div>
-                    )}
-                  </React.Fragment>
-                ))}
-                {loading && (
-                  <div className="typing-indicator">
-                    <div className="avatar bot-avatar">AI</div>
-                    <div className="typing-dots"><span></span><span></span><span></span></div>
-                  </div>
-                )}
-                <div ref={currentEndRef} />
-              </div>
-            )}
+          <div className="chat-window">
+            {chat.map((m, i) => (
+              <React.Fragment key={i}>
+                <div className="chat-row user-row"><div className="avatar user-avatar">U</div><div className="user-message">{m.user}</div></div>
+                {m.bot && <div className="chat-row bot-row"><div className="avatar bot-avatar">AI</div><div className="bot-message"><ReactMarkdown>{m.bot}</ReactMarkdown></div></div>}
+              </React.Fragment>
+            ))}
+            {loading && <div className="typing-indicator"><div className="avatar bot-avatar">AI</div><div className="typing-dots"><span/><span/><span/></div></div>}
+            <div ref={chatEnd} />
+          </div>
+        )}
 
-            <div className="suggestions-section">
-              <div className="suggestions-label">Suggested Questions</div>
-              <div className="suggestions-chips">
-                {currentSuggestions.map((s, i) => (
-                  <button key={i} className="suggestion-chip" onClick={() => setInput(s.text)} id={`suggestion-${i}`}>
-                    <span className="suggestion-chip-icon">{s.icon}</span>{s.text}
-                  </button>
-                ))}
-              </div>
+        {(tab !== "ats" || chat.length > 0 || (atsData && atsData.error)) && (
+          <div className="input-section">
+            <div className="input-wrapper">
+              <input value={input} onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendMessage(); } }}
+                placeholder={tab === "interview_prep" ? "Ask about interview preparation..." : tab === "resume_match" ? "Ask about resume matching..." : "Ask your career question..."}
+                disabled={loading} />
+              <button className="send-btn" onClick={sendMessage} disabled={!input.trim() || loading}><FaPaperPlane /></button>
             </div>
-
-            <div className="input-section">
-              <div className="input-wrapper">
-                <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder={mode === "interview" ? "Answer the interview question…" : (appTab === "coach" ? "Ask about your resume…" : "Ask a comparison question…")}
-                  disabled={loading} id="chat-input" />
-                <button className="send-btn" onClick={handleSend} disabled={!input.trim() || loading} id="btn-send"><FaPaperPlane /></button>
-              </div>
-              <div className="input-hint">Press <kbd>Enter</kbd> to send</div>
-            </div>
-          </>
+          </div>
         )}
       </main>
     </div>
   );
 }
 
-export default App;
+/* ========== PLACEMENT CELL DASHBOARD ========== */
+function PlacementDashboard() {
+  const { user, logout, authHeaders, API } = useAuth();
+  const [tab, setTab] = useState("search");
+  const [sidebar, setSidebar] = useState(true);
+  const [theme, setTheme] = useState("dark");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [analytics, setAnalytics] = useState(null);
+  const [kbTitle, setKbTitle] = useState("");
+  const [kbContent, setKbContent] = useState("");
+  const [kbCategory, setKbCategory] = useState("resource");
+  const [kbCompany, setKbCompany] = useState("");
+  const [kbMsg, setKbMsg] = useState("");
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next); document.documentElement.setAttribute("data-theme", next);
+  };
+
+  const searchCandidates = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true); setSearchResults(null);
+    try {
+      const fd = new FormData(); fd.append("query", searchQuery);
+      const r = await axios.post(`${API}/placement/search`, fd, {
+        headers: { ...authHeaders.headers, "Content-Type": "multipart/form-data" }, timeout: 120000,
+      });
+      setSearchResults(r.data);
+    } catch { setSearchResults({ answer: "⚠️ Search failed.", candidates: [] }); }
+    setSearching(false);
+  };
+
+  const loadAnalytics = async () => {
+    try {
+      const r = await axios.get(`${API}/placement/analytics`, authHeaders);
+      setAnalytics(r.data);
+    } catch { setAnalytics({ error: true }); }
+  };
+
+  const uploadKB = async () => {
+    if (!kbTitle || !kbContent) return;
+    try {
+      const fd = new FormData();
+      fd.append("title", kbTitle); fd.append("content", kbContent);
+      fd.append("category", kbCategory); fd.append("company", kbCompany);
+      await axios.post(`${API}/placement/upload-kb`, fd, {
+        headers: { ...authHeaders.headers, "Content-Type": "multipart/form-data" },
+      });
+      setKbMsg("✅ Added!"); setKbTitle(""); setKbContent(""); setKbCompany("");
+    } catch { setKbMsg("❌ Failed."); }
+  };
+
+  const tabLabels = {
+    search: { icon: <FaSearch />, label: "Search Candidates" },
+    kb: { icon: <FaDatabase />, label: "Knowledge Base" },
+    analytics: { icon: <FaChartBar />, label: "Analytics" },
+  };
+
+  return (
+    <div className="app-container">
+      <aside className={`sidebar ${sidebar ? "open" : ""}`}>
+        <div className="sidebar-header">
+          <div className="sidebar-brand"><div className="sidebar-logo">🏛️</div><div className="sidebar-brand-text"><h2>PlaceAI</h2><span>Placement Cell</span></div></div>
+        </div>
+        <div className="sidebar-nav">
+          {Object.entries(tabLabels).map(([k, v]) => (
+            <button key={k} className={`sidebar-nav-btn ${tab === k ? "active" : ""}`} onClick={() => { setTab(k); if (k === "analytics") loadAnalytics(); }}>
+              {v.icon}<span>{v.label}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="sidebar-footer">
+          <div className="sidebar-user"><FaUserGraduate /><span>{user?.name}</span><span className="sidebar-dept">Admin</span></div>
+          <button className="sidebar-logout" onClick={logout}><FaSignOutAlt /> Logout</button>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <div className="top-bar">
+          <div className="top-bar-left">
+            <button className="sidebar-toggle" onClick={() => setSidebar(!sidebar)}>{sidebar ? <FaTimes /> : <FaBars />}</button>
+            <span className="top-bar-title">{tabLabels[tab]?.icon} {tabLabels[tab]?.label}</span>
+          </div>
+          <div className="top-bar-right"><button className="theme-toggle" onClick={toggleTheme}>{theme === "dark" ? <FaSun /> : <FaMoon />}</button></div>
+        </div>
+
+        {tab === "search" && (
+          <>
+            <div className="search-hero">
+              <h2>🔍 Find the Best Candidates</h2>
+              <p>Describe your requirements in natural language</p>
+              <div className="search-bar">
+                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") searchCandidates(); }}
+                  placeholder='e.g. "Students with Python, AI projects, hackathon experience"' />
+                <button onClick={searchCandidates} disabled={searching}>{searching ? "..." : <FaSearch />}</button>
+              </div>
+            </div>
+            {searchResults && (
+              <div className="search-results">
+                {searchResults.candidates?.length > 0 && (
+                  <div className="candidates-grid">
+                    {searchResults.candidates.map((c, i) => (
+                      <div key={i} className="candidate-card">
+                        <div className="candidate-top">
+                          <div className="candidate-rank">#{i+1}</div>
+                          <div className="candidate-info">
+                            <div className="candidate-name">{c.name}</div>
+                            <div className="candidate-dept">{c.department}</div>
+                          </div>
+                          <ScoreRing score={c.relevance_score} size={52} strokeWidth={4} />
+                        </div>
+                        <div className="candidate-skills">
+                          {(c.skills||[]).slice(0,5).map((s,j) => <span key={j} className="skill-tag">{s}</span>)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {searchResults.answer && (
+                  <div className="search-ai-answer"><div className="avatar bot-avatar">AI</div><div className="bot-message"><ReactMarkdown>{searchResults.answer}</ReactMarkdown></div></div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "kb" && (
+          <div className="kb-panel">
+            <h2>📚 Add to Knowledge Base</h2>
+            <div className="kb-form">
+              <select value={kbCategory} onChange={e => setKbCategory(e.target.value)} className="context-input">
+                <option value="resource">Resource</option>
+                <option value="interview">Interview Experience</option>
+                <option value="alumni">Alumni Profile</option>
+                <option value="roadmap">Skill Roadmap</option>
+              </select>
+              <input placeholder="Title" value={kbTitle} onChange={e => setKbTitle(e.target.value)} className="context-input" />
+              {(kbCategory === "interview" || kbCategory === "alumni") && (
+                <input placeholder="Company" value={kbCompany} onChange={e => setKbCompany(e.target.value)} className="context-input" />
+              )}
+              <textarea placeholder="Content..." value={kbContent} onChange={e => setKbContent(e.target.value)} className="kb-textarea" rows={6} />
+              <button className="upload-btn" onClick={uploadKB}>Add to Knowledge Base</button>
+              {kbMsg && <div className="upload-status">{kbMsg}</div>}
+            </div>
+          </div>
+        )}
+
+        {tab === "analytics" && (
+          <div className="analytics-panel">
+            <h2>📊 Placement Analytics</h2>
+            {analytics && !analytics.error ? (
+              <div className="analytics-grid">
+                <div className="analytics-card"><div className="analytics-number">{analytics.total_students}</div><div className="analytics-label">Total Students</div></div>
+                <div className="analytics-card"><div className="analytics-number">{analytics.resumes_uploaded}</div><div className="analytics-label">Resumes Uploaded</div></div>
+                <div className="analytics-card"><div className="analytics-number">{analytics.kb_stats?.institutional_kb || 0}</div><div className="analytics-label">KB Documents</div></div>
+                <div className="analytics-card"><div className="analytics-number">{analytics.kb_stats?.interview_experiences || 0}</div><div className="analytics-label">Interview Experiences</div></div>
+                {analytics.top_skills?.length > 0 && (
+                  <div className="analytics-card wide">
+                    <h4>Top Skills</h4>
+                    <div className="analytics-skills">{analytics.top_skills.map((s,i) => (
+                      <div key={i} className="analytics-skill-row">
+                        <span>{s.skill}</span>
+                        <div className="analytics-skill-bar"><div style={{ width: `${Math.min(100, (s.count / (analytics.top_skills[0]?.count || 1)) * 100)}%` }} /></div>
+                        <span className="analytics-skill-count">{s.count}</span>
+                      </div>
+                    ))}</div>
+                  </div>
+                )}
+                {analytics.departments && Object.keys(analytics.departments).length > 0 && (
+                  <div className="analytics-card wide">
+                    <h4>Department Distribution</h4>
+                    <div className="analytics-skills">{Object.entries(analytics.departments).map(([d, c], i) => (
+                      <div key={i} className="analytics-skill-row">
+                        <span>{d}</span>
+                        <div className="analytics-skill-bar"><div style={{ width: `${Math.min(100, (c / analytics.total_students) * 100)}%` }} /></div>
+                        <span className="analytics-skill-count">{c}</span>
+                      </div>
+                    ))}</div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button className="ats-fetch-btn" onClick={loadAnalytics}>Load Analytics</button>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ========== ROOT APP ========== */
+function AppContent() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="loading-screen"><div className="loading-spinner" /><p>Loading PlaceAI...</p></div>;
+  if (!user) return <LoginPage />;
+  if (user.role === "placement_cell") return <PlacementDashboard />;
+  return <StudentDashboard />;
+}
+
+export default function App() {
+  return <AuthProvider><AppContent /></AuthProvider>;
+}
