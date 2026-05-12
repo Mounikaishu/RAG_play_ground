@@ -4,9 +4,16 @@ Each node handles a specific retrieval or generation step.
 """
 
 from graph.state import PlacementState
-from knowledge_base.collections import search_kb, search_student_resumes
+from knowledge_base.collections import (
+    search_kb, search_student_resumes,
+    search_alumni_resumes, search_placement_materials,
+)
 from llm import llm_call
 
+
+# ──────────────────────────────────────────────────────────
+# Retrieval Nodes — Existing
+# ──────────────────────────────────────────────────────────
 
 def retrieve_kb_node(state: PlacementState) -> PlacementState:
     """Retrieve relevant documents from the institutional knowledge base."""
@@ -48,6 +55,99 @@ def retrieve_interview_node(state: PlacementState) -> PlacementState:
     return {**state, "context_interviews": context}
 
 
+# ──────────────────────────────────────────────────────────
+# Retrieval Nodes — New (File-Based Collections)
+# ──────────────────────────────────────────────────────────
+
+def retrieve_alumni_guidance_node(state: PlacementState) -> PlacementState:
+    """
+    Retrieve from alumni_resumes_collection for mentor mode.
+
+    Searches alumni resumes for career paths, skills, preparation strategies,
+    and company-specific guidance from successfully placed alumni.
+    """
+    query = state["question"]
+    career_goal = state.get("career_goal", "")
+    target_company = state.get("target_company", "")
+
+    # Enrich query with career context
+    search_query = query
+    if career_goal:
+        search_query = f"{search_query} {career_goal}"
+    if target_company:
+        search_query = f"{search_query} {target_company}"
+
+    # Search alumni resumes with optional company filter
+    results = search_alumni_resumes(
+        search_query, k=5,
+        company=target_company if target_company else None,
+    )
+    context = "\n\n".join([r["document"] for r in results]) if results else ""
+
+    return {**state, "context_alumni": context}
+
+
+def retrieve_interview_experience_node(state: PlacementState) -> PlacementState:
+    """
+    Enhanced retrieval from interview_experiences for interview prep mode.
+
+    Pulls from BOTH the synthetic seed data AND file-based interview experiences
+    for comprehensive coverage.
+    """
+    company = state.get("target_company", "")
+    role = state.get("target_role", "")
+    query = f"{state['question']} {company} {role} interview experience".strip()
+
+    # Search interview experiences (covers both seeded + file-ingested data)
+    where = {"company": company} if company else None
+    results = search_kb(query, "interview_experiences", k=8, where=where)
+    context = "\n\n".join([r["document"] for r in results]) if results else ""
+
+    return {**state, "context_interviews": context}
+
+
+def retrieve_resume_matching_node(state: PlacementState) -> PlacementState:
+    """
+    Cross-reference student resume against alumni profiles for placement search.
+
+    Retrieves from BOTH alumni_resumes (file-based) and student_resumes
+    to enable skills gap analysis and alumni-student matching.
+    """
+    query = state["question"]
+    user_id = state.get("user_id", "")
+
+    # Get alumni context for comparison
+    alumni_results = search_alumni_resumes(query, k=5)
+    alumni_context = "\n\n".join([r["document"] for r in alumni_results]) if alumni_results else ""
+
+    # Get placement materials for advice
+    material_results = search_placement_materials(query, k=3)
+    material_context = "\n\n".join([r["document"] for r in material_results]) if material_results else ""
+
+    return {
+        **state,
+        "context_alumni": alumni_context,
+        "context_placement": material_context,
+    }
+
+
+def retrieve_placement_materials_node(state: PlacementState) -> PlacementState:
+    """
+    Retrieve placement materials (guides, roadmaps, DSA resources).
+
+    Used to enrich mentor and ATS responses with actionable resources.
+    """
+    query = state["question"]
+    results = search_placement_materials(query, k=3)
+    context = "\n\n".join([r["document"] for r in results]) if results else ""
+
+    return {**state, "context_placement": context}
+
+
+# ──────────────────────────────────────────────────────────
+# Generation Nodes
+# ──────────────────────────────────────────────────────────
+
 def mentor_node(state: PlacementState) -> PlacementState:
     """Career guidance and mentorship node."""
     history_text = "\n".join(state.get("history", [])[-10:])
@@ -59,6 +159,12 @@ Student's Resume Profile:
 
 Institutional Knowledge (Alumni Profiles, Roadmaps, Placement Data):
 {state.get('context_kb', '')}
+
+Alumni Career Journeys (Real Alumni Resumes):
+{state.get('context_alumni', '')}
+
+Placement Resources & Guides:
+{state.get('context_placement', '')}
 
 Career Goal: {state.get('career_goal', 'Not specified')}
 
@@ -92,6 +198,9 @@ Student's Resume:
 
 Interview Experiences from Seniors:
 {state.get('context_interviews', 'No specific experiences found.')}
+
+Alumni Career Profiles:
+{state.get('context_alumni', '')}
 
 Related Knowledge Base:
 {state.get('context_kb', '')}
@@ -128,6 +237,9 @@ Student's Resume Content:
 ATS Best Practices from Knowledge Base:
 {state.get('context_kb', '')}
 
+Placement Resources & Guides:
+{state.get('context_placement', '')}
+
 Student's Question:
 {state['question']}
 
@@ -158,7 +270,10 @@ Student's Current Resume:
 {state.get('context_resume', 'No resume uploaded.')}
 
 Successfully Placed Alumni Profiles:
-{state.get('context_kb', '')}
+{state.get('context_alumni', state.get('context_kb', ''))}
+
+Placement Resources:
+{state.get('context_placement', '')}
 
 Student's Question:
 {state['question']}

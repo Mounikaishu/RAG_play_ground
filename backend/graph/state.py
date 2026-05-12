@@ -12,6 +12,8 @@ class PlacementState(TypedDict):
     context_kb: str
     context_resume: str
     context_interviews: str
+    context_alumni: str         # Alumni resume retrieval context
+    context_placement: str      # Placement materials context
     answer: str
     history: List[str]
     career_goal: str
