@@ -49,7 +49,7 @@ function LoginPage() {
           setError(detail || `Server error: ${err.response.status}`);
         }
       } else if (err.request) {
-        setError("Cannot reach backend. Is it running on http://localhost:8000?");
+        setError("Cannot reach backend. Is it running on https://rag-play-ground.onrender.com?");
       } else {
         setError(err.message || "Something went wrong.");
       }

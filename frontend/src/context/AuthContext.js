@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API = process.env.REACT_APP_API_URL || "https://rag-play-ground.onrender.com";
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
