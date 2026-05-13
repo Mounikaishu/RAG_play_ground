@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import axios from "axios";
-import { FaPaperPlane, FaBars, FaTimes, FaCloudUploadAlt, FaSearch, FaSignOutAlt, FaMoon, FaSun, FaUserGraduate, FaChartBar, FaDatabase, FaCompass, FaBriefcase, FaFileAlt, FaUsers, FaTrash, FaChevronDown, FaChevronRight, FaCheckCircle, FaTimesCircle, FaSpinner } from "react-icons/fa";
+import { FaPaperPlane, FaBars, FaTimes, FaCloudUploadAlt, FaSearch, FaSignOutAlt, FaMoon, FaSun, FaUserGraduate, FaChartBar, FaDatabase, FaCompass, FaBriefcase, FaFileAlt, FaUsers, FaTrash, FaChevronDown, FaChevronRight, FaCheckCircle, FaTimesCircle, FaSpinner, FaUserPlus } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import "./App.css";
@@ -349,6 +349,14 @@ function PlacementDashboard() {
   const [kbTextOpen, setKbTextOpen] = useState(false);
   const [kbDeleting, setKbDeleting] = useState(null);
   const kbFileRef = useRef(null);
+  // Registration state
+  const [regForm, setRegForm] = useState({ name: "", roll_no: "", department: "IT", college_email: "", passing_out_year: 2028, skills: "" });
+  const [regLoading, setRegLoading] = useState(false);
+  const [regResult, setRegResult] = useState(null);
+  const [bulkJson, setBulkJson] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState(null);
+  const [regMode, setRegMode] = useState("single"); // "single" or "bulk"
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -427,8 +435,43 @@ function PlacementDashboard() {
     setKbDeleting(null);
   };
 
+  const registerStudent = async () => {
+    setRegLoading(true); setRegResult(null);
+    try {
+      const payload = { ...regForm, skills: regForm.skills ? regForm.skills.split(",").map(s => s.trim()).filter(Boolean) : [] };
+      const r = await axios.post(`${API}/auth/register`, payload, authHeaders);
+      setRegResult({ success: true, message: r.data.message, default_password: r.data.default_password });
+      setRegForm({ name: "", roll_no: "", department: "IT", college_email: "", passing_out_year: 2028, skills: "" });
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const msg = Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join(", ") : (typeof detail === "string" ? detail : JSON.stringify(detail));
+      setRegResult({ success: false, message: msg || "Registration failed." });
+    }
+    setRegLoading(false);
+  };
+
+  const bulkRegister = async () => {
+    setBulkLoading(true); setBulkResults(null);
+    try {
+      const parsed = JSON.parse(bulkJson);
+      const payload = Array.isArray(parsed) ? { students: parsed } : parsed;
+      const r = await axios.post(`${API}/auth/bulk-register`, payload, authHeaders);
+      setBulkResults(r.data);
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        setBulkResults({ message: "❌ Invalid JSON format. Please check your input." });
+      } else {
+        const detail = err.response?.data?.detail;
+        const msg = typeof detail === "string" ? detail : JSON.stringify(detail);
+        setBulkResults({ message: msg || "❌ Bulk registration failed." });
+      }
+    }
+    setBulkLoading(false);
+  };
+
   const tabLabels = {
     search: { icon: <FaSearch />, label: "Search Candidates" },
+    register: { icon: <FaUserPlus />, label: "Register Students" },
     kb: { icon: <FaDatabase />, label: "Knowledge Base" },
     analytics: { icon: <FaChartBar />, label: "Analytics" },
   };
@@ -610,6 +653,82 @@ function PlacementDashboard() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {tab === "register" && (
+          <div className="kb-panel">
+            <h2>👨‍🎓 Register Students</h2>
+            <div className="reg-mode-tabs">
+              <button className={`reg-mode-btn ${regMode === "single" ? "active" : ""}`} onClick={() => setRegMode("single")}>Single Student</button>
+              <button className={`reg-mode-btn ${regMode === "bulk" ? "active" : ""}`} onClick={() => setRegMode("bulk")}>Bulk Registration</button>
+            </div>
+
+            {regMode === "single" && (
+              <div className="kb-section">
+                <h3 className="kb-section-title">📝 Register Individual Student</h3>
+                <p className="kb-section-desc">Student will receive the default password: <code>svecw@2026</code></p>
+                <div className="reg-form">
+                  <div className="reg-row">
+                    <input placeholder="Full Name *" value={regForm.name} onChange={e => setRegForm(p => ({...p, name: e.target.value}))} className="context-input" />
+                    <input placeholder="Roll Number *" value={regForm.roll_no} onChange={e => setRegForm(p => ({...p, roll_no: e.target.value}))} className="context-input" />
+                  </div>
+                  <div className="reg-row">
+                    <select value={regForm.department} onChange={e => setRegForm(p => ({...p, department: e.target.value}))} className="kb-select">
+                      <option value="IT">IT</option>
+                      <option value="CSE">CSE</option>
+                      <option value="ECE">ECE</option>
+                      <option value="EEE">EEE</option>
+                      <option value="MECH">MECH</option>
+                      <option value="CIVIL">CIVIL</option>
+                      <option value="AIDS">AIDS</option>
+                      <option value="AIML">AIML</option>
+                    </select>
+                    <input type="number" placeholder="Passing Out Year" value={regForm.passing_out_year} onChange={e => setRegForm(p => ({...p, passing_out_year: parseInt(e.target.value) || 2028}))} className="context-input" />
+                  </div>
+                  <input placeholder="College Email (e.g. 24b01a1276@svecw.edu.in) *" value={regForm.college_email} onChange={e => setRegForm(p => ({...p, college_email: e.target.value}))} className="context-input" />
+                  <input placeholder="Skills (comma-separated, e.g. Python, ML, DSA)" value={regForm.skills} onChange={e => setRegForm(p => ({...p, skills: e.target.value}))} className="context-input" />
+                  <button className="kb-upload-btn" onClick={registerStudent} disabled={regLoading || !regForm.name || !regForm.roll_no || !regForm.college_email}>
+                    {regLoading ? <><FaSpinner className="spin-icon" /> Registering...</> : "Register Student"}
+                  </button>
+                </div>
+                {regResult && (
+                  <div className={`kb-results ${regResult.success ? "" : "error"}`}>
+                    <div className="kb-results-summary">{regResult.message}</div>
+                    {regResult.default_password && <div className="reg-password-note">🔑 Default Password: <strong>{regResult.default_password}</strong></div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {regMode === "bulk" && (
+              <div className="kb-section">
+                <h3 className="kb-section-title">📋 Bulk Registration (JSON)</h3>
+                <p className="kb-section-desc">Paste a JSON array of students. All will receive the default password.</p>
+                <div className="bulk-example">
+                  <button className="bulk-example-btn" onClick={() => setBulkJson(JSON.stringify([{name:"Student Name",roll_no:"24b01a1276",department:"IT",college_email:"24b01a1276@svecw.edu.in",passing_out_year:2028},{name:"Another Student",roll_no:"24b01a1278",department:"CSE",college_email:"24b01a1278@svecw.edu.in",passing_out_year:2028}], null, 2))}>
+                    📄 Load Example
+                  </button>
+                </div>
+                <textarea className="kb-textarea bulk-textarea" rows={12} placeholder='[\n  { "name": "...", "roll_no": "...", "department": "IT", "college_email": "...@svecw.edu.in", "passing_out_year": 2028 }\n]' value={bulkJson} onChange={e => setBulkJson(e.target.value)} />
+                <button className="kb-upload-btn" onClick={bulkRegister} disabled={bulkLoading || !bulkJson.trim()}>
+                  {bulkLoading ? <><FaSpinner className="spin-icon" /> Processing...</> : "Register All Students"}
+                </button>
+                {bulkResults && (
+                  <div className="kb-results">
+                    <div className="kb-results-summary">{bulkResults.message}</div>
+                    {bulkResults.default_password && <div className="reg-password-note">🔑 Default Password: <strong>{bulkResults.default_password}</strong></div>}
+                    {(bulkResults.results || []).map((r, i) => (
+                      <div key={i} className={`kb-result-item ${r.status}`}>
+                        <span className="kb-result-icon">{r.status === "success" ? <FaCheckCircle /> : <FaTimesCircle />}</span>
+                        <span className="kb-result-name">{r.roll_no} — {r.name}</span>
+                        {r.error && <span className="kb-result-error">{r.error}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
