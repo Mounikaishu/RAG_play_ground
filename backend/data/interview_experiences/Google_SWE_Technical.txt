@@ -1,0 +1,51 @@
+GOOGLE SOFTWARE ENGINEER (L3) INTERVIEW EXPERIENCE
+Company: Google
+Role: Software Engineer L3
+Difficulty: Hard
+
+PHONE SCREEN (Round 1)
+- Duration: 45 minutes
+- Coding question: Find number of islands in a matrix
+  - Used DFS/BFS to traverse connected components
+  - Follow-up: Handle streaming case where new land appears dynamically
+  - Key insight: Union-Find is better for the streaming variant
+- Tip: Google expects optimal solutions with clear time/space analysis
+
+ONSITE ROUND 1 — CODING (Round 2)
+- Duration: 45 minutes
+- Problem: Design and implement a rate limiter for an API
+  - Discussed Token Bucket vs Sliding Window vs Fixed Window approaches
+  - Implemented sliding window counter approach
+  - Follow-up: How to make it distributed across multiple servers?
+  - Key: Google wants you to discuss trade-offs, not just code
+
+ONSITE ROUND 2 — CODING (Round 3)
+- Duration: 45 minutes
+- Problem: Given a stream of numbers, find the median at any point
+  - Used two heaps (max-heap + min-heap) approach
+  - Discussed space optimization and alternative approaches
+  - Follow-up: What if the stream is distributed across machines?
+
+ONSITE ROUND 3 — SYSTEM DESIGN (Round 4)
+- Duration: 45 minutes
+- Design Google Calendar
+  - Event storage, recurring events, reminders
+  - Conflict detection algorithm
+  - Scalability for millions of users
+  - Discussed consistency vs availability trade-offs
+
+ONSITE ROUND 4 — BEHAVIORAL (Googleyness & Leadership)
+- Duration: 45 minutes
+- Describe a time you disagreed with your team — how did you resolve it?
+- Tell me about a project where you had to learn something new quickly
+- How do you handle ambiguity in requirements?
+- Google values: humility, willingness to learn, collaboration
+
+TIPS FOR PREPARATION
+1. Google focuses heavily on coding clarity and communication
+2. Always explain your thought process before coding
+3. Practice on a Google Doc (no syntax highlighting, no auto-complete)
+4. Master BFS/DFS, dynamic programming, and graph algorithms
+5. For system design: focus on scalability and trade-off analysis
+6. Be ready for follow-up questions that extend the original problem
+7. Google values optimized solutions — O(n) is expected over O(n²)

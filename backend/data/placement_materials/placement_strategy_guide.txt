@@ -1,0 +1,58 @@
+PLACEMENT SEASON STRATEGY — COMPLETE TIMELINE
+
+6 MONTHS BEFORE PLACEMENTS
+- Start daily DSA practice (1-2 problems/day on LeetCode)
+- Begin with easy problems, move to medium after 2 weeks
+- Choose 2-3 project ideas and start building
+- Identify your target role: SDE, Data Science, ML, Frontend, etc.
+- Join coding contests on Codeforces/LeetCode weekly
+
+4 MONTHS BEFORE PLACEMENTS
+- Complete core DSA topics: Arrays, Strings, Trees, Graphs, DP
+- Target: 200+ problems solved across all topics
+- Start system design basics: read Alex Xu's System Design Interview
+- Begin building your resume — get it reviewed by seniors/mentors
+- Attend placement preparation workshops
+
+3 MONTHS BEFORE PLACEMENTS
+- Focus on company-specific preparation
+- Practice mock interviews with peers (at least 2/week)
+- Complete all projects and deploy them
+- Prepare behavioral answers using STAR method (5 stories minimum)
+- Start contributing to open source if not already
+
+2 MONTHS BEFORE PLACEMENTS
+- Apply to dream companies and backup companies
+- Practice company-specific questions (GeeksforGeeks, LeetCode company tags)
+- Revise OS, DBMS, and CN fundamentals
+- Polish resume — run through ATS checker tools
+- Prepare 2-minute self-introduction
+
+1 MONTH BEFORE PLACEMENTS
+- Revise weak topics — focus on pattern recognition
+- Do 1 mock interview daily (with timer)
+- Revise all project details (be ready for deep dives)
+- Practice writing code on paper/whiteboard
+- Sleep well, exercise, maintain mental health
+
+DURING PLACEMENT SEASON
+- Stay calm — nervousness is normal
+- Read questions carefully — don't rush to code
+- Communicate your thought process to interviewers
+- Ask clarifying questions before solving
+- If stuck, discuss your approach with the interviewer
+- After each interview, note down questions for future reference
+
+AFTER REJECTION
+- Analyze what went wrong — was it DSA, system design, or behavioral?
+- Don't take it personally — even the best get rejected sometimes
+- Improve on weak areas and keep applying
+- Talk to placed seniors who went through similar experiences
+- Remember: one "yes" is all you need
+
+KEY METRICS TO TRACK
+- Problems solved (target: 300+)
+- Mock interviews completed (target: 20+)
+- Projects deployed (target: 3+)
+- Companies applied to (target: 10+)
+- Certifications completed (target: 2+)

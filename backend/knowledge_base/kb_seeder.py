@@ -50,7 +50,16 @@ PLACEMENT_RESOURCES = [
 
 
 def seed_knowledge_base():
-    """Seed the knowledge base with synthetic institutional data."""
+    """
+    Seed the knowledge base with synthetic institutional data.
+    Only runs when SEED_KB=true env var is set (opt-in for dev/demo mode).
+    In production, the placement admin uploads all data through the dashboard.
+    """
+    import os
+    if os.getenv("SEED_KB", "").lower() != "true":
+        print("⏩ KB seeding skipped (set SEED_KB=true to enable demo data).")
+        return
+
     kb_count = get_collection_count("institutional_kb")
     interview_count = get_collection_count("interview_experiences")
 

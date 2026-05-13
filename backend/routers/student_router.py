@@ -108,6 +108,8 @@ async def chat(
         "context_kb": "",
         "context_resume": "",
         "context_interviews": "",
+        "context_alumni": "",
+        "context_placement": "",
         "answer": "",
         "history": history,
         "career_goal": career_goal,

@@ -4,18 +4,25 @@ ChromaDB Multi-Collection Manager for the institutional knowledge base.
 Collections:
 - institutional_kb: Alumni journeys, career roadmaps, placement tips, ATS templates
 - interview_experiences: Company-wise interview Q&A, round-specific experiences
+- alumni_resumes: File-based alumni resume embeddings with rich metadata
+- placement_materials: Guides, roadmaps, DSA resources, strategy documents
 - student_resumes: All student resume embeddings with metadata (legacy/fallback)
 - student_resumes_{year}: Year-specific resume collections (e.g., student_resumes_2028)
 """
 
+import os
 import chromadb
 from collections import defaultdict
 
-client = chromadb.Client()
+# Persistent ChromaDB — data survives server restarts
+CHROMA_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chroma_db")
+client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
 COLLECTIONS = {
     "institutional_kb": "institutional_kb",
     "interview_experiences": "interview_experiences",
+    "alumni_resumes": "alumni_resumes_collection",
+    "placement_materials": "placement_materials_collection",
     "student_resumes": "student_resumes",
 }
 
@@ -83,6 +90,35 @@ def search_kb(query: str, collection_name: str, k: int = 5, where: dict = None):
         items.append({"document": doc, "metadata": meta, "distance": dist})
 
     return items
+
+
+def search_alumni_resumes(query: str, k: int = 5, company: str = None,
+                           department: str = None, batch: str = None):
+    """
+    Search across alumni resume embeddings with optional filters.
+    Returns list of {document, metadata, distance}.
+    """
+    where = {}
+    if company:
+        where["company"] = company
+    if department:
+        where["department"] = department
+    if batch:
+        where["batch"] = batch
+
+    return search_kb(
+        query, "alumni_resumes", k=k,
+        where=where if where else None,
+    )
+
+
+def search_placement_materials(query: str, k: int = 5, material_type: str = None):
+    """
+    Search across placement materials with optional type filter.
+    Returns list of {document, metadata, distance}.
+    """
+    where = {"type": material_type} if material_type else None
+    return search_kb(query, "placement_materials", k=k, where=where)
 
 
 def store_student_resume(roll_no: str, name: str, department: str,

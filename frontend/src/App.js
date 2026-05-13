@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import axios from "axios";
-import { FaPaperPlane, FaBars, FaTimes, FaCloudUploadAlt, FaSearch, FaSignOutAlt, FaMoon, FaSun, FaUserGraduate, FaChartBar, FaDatabase, FaCompass, FaBriefcase, FaFileAlt, FaUsers } from "react-icons/fa";
+import { FaPaperPlane, FaBars, FaTimes, FaCloudUploadAlt, FaSearch, FaSignOutAlt, FaMoon, FaSun, FaUserGraduate, FaChartBar, FaDatabase, FaCompass, FaBriefcase, FaFileAlt, FaUsers, FaTrash, FaChevronDown, FaChevronRight, FaCheckCircle, FaTimesCircle, FaSpinner } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import "./App.css";
@@ -339,6 +339,16 @@ function PlacementDashboard() {
   const [kbCategory, setKbCategory] = useState("resource");
   const [kbCompany, setKbCompany] = useState("");
   const [kbMsg, setKbMsg] = useState("");
+  // File upload state
+  const [kbFiles, setKbFiles] = useState([]);
+  const [kbFileCategory, setKbFileCategory] = useState("alumni_resumes");
+  const [kbSelectedFiles, setKbSelectedFiles] = useState([]);
+  const [kbUploading, setKbUploading] = useState(false);
+  const [kbUploadResults, setKbUploadResults] = useState(null);
+  const [kbFilesLoading, setKbFilesLoading] = useState(false);
+  const [kbTextOpen, setKbTextOpen] = useState(false);
+  const [kbDeleting, setKbDeleting] = useState(null);
+  const kbFileRef = useRef(null);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -378,6 +388,45 @@ function PlacementDashboard() {
     } catch { setKbMsg("❌ Failed."); }
   };
 
+  const fetchKbFiles = async () => {
+    setKbFilesLoading(true);
+    try {
+      const r = await axios.get(`${API}/placement/kb-files`, authHeaders);
+      setKbFiles(r.data.files || []);
+    } catch { setKbFiles([]); }
+    setKbFilesLoading(false);
+  };
+
+  const uploadKbFiles = async () => {
+    if (!kbSelectedFiles.length) return;
+    setKbUploading(true); setKbUploadResults(null);
+    const fd = new FormData();
+    fd.append("category", kbFileCategory);
+    for (const f of kbSelectedFiles) fd.append("files", f);
+    try {
+      const r = await axios.post(`${API}/placement/upload-kb-files`, fd, {
+        headers: { ...authHeaders.headers, "Content-Type": "multipart/form-data" }, timeout: 180000,
+      });
+      setKbUploadResults(r.data);
+      setKbSelectedFiles([]);
+      if (kbFileRef.current) kbFileRef.current.value = "";
+      fetchKbFiles();
+    } catch (err) {
+      setKbUploadResults({ message: "❌ Upload failed.", results: [] });
+    }
+    setKbUploading(false);
+  };
+
+  const deleteKbFile = async (fileHash, filename) => {
+    if (!window.confirm(`Delete "${filename}" from the knowledge base?`)) return;
+    setKbDeleting(fileHash);
+    try {
+      await axios.delete(`${API}/placement/delete-kb-file/${fileHash}`, authHeaders);
+      setKbFiles(prev => prev.filter(f => f.file_hash !== fileHash));
+    } catch { alert("Failed to delete file."); }
+    setKbDeleting(null);
+  };
+
   const tabLabels = {
     search: { icon: <FaSearch />, label: "Search Candidates" },
     kb: { icon: <FaDatabase />, label: "Knowledge Base" },
@@ -392,7 +441,7 @@ function PlacementDashboard() {
         </div>
         <div className="sidebar-nav">
           {Object.entries(tabLabels).map(([k, v]) => (
-            <button key={k} className={`sidebar-nav-btn ${tab === k ? "active" : ""}`} onClick={() => { setTab(k); if (k === "analytics") loadAnalytics(); }}>
+            <button key={k} className={`sidebar-nav-btn ${tab === k ? "active" : ""}`} onClick={() => { setTab(k); if (k === "analytics") loadAnalytics(); if (k === "kb") fetchKbFiles(); }}>
               {v.icon}<span>{v.label}</span>
             </button>
           ))}
@@ -456,21 +505,110 @@ function PlacementDashboard() {
 
         {tab === "kb" && (
           <div className="kb-panel">
-            <h2>📚 Add to Knowledge Base</h2>
-            <div className="kb-form">
-              <select value={kbCategory} onChange={e => setKbCategory(e.target.value)} className="context-input">
-                <option value="resource">Resource</option>
-                <option value="interview">Interview Experience</option>
-                <option value="alumni">Alumni Profile</option>
-                <option value="roadmap">Skill Roadmap</option>
-              </select>
-              <input placeholder="Title" value={kbTitle} onChange={e => setKbTitle(e.target.value)} className="context-input" />
-              {(kbCategory === "interview" || kbCategory === "alumni") && (
-                <input placeholder="Company" value={kbCompany} onChange={e => setKbCompany(e.target.value)} className="context-input" />
+            <h2>📚 Knowledge Base Management</h2>
+
+            {/* ── File Upload Section ── */}
+            <div className="kb-section">
+              <h3 className="kb-section-title">📤 Upload Files</h3>
+              <p className="kb-section-desc">Upload PDF or TXT files to be processed through the ingestion pipeline and stored in ChromaDB.</p>
+              <div className="kb-upload-controls">
+                <select value={kbFileCategory} onChange={e => setKbFileCategory(e.target.value)} className="kb-select">
+                  <option value="alumni_resumes">Alumni Resumes</option>
+                  <option value="interview_experiences">Interview Experiences</option>
+                  <option value="placement_materials">Placement Materials</option>
+                </select>
+              </div>
+              <div className="kb-drop-zone" onClick={() => kbFileRef.current?.click()}>
+                <input type="file" accept=".pdf,.txt" multiple ref={kbFileRef} onChange={e => setKbSelectedFiles(Array.from(e.target.files))} style={{ display: "none" }} />
+                <FaCloudUploadAlt className="kb-drop-icon" />
+                {kbSelectedFiles.length > 0 ? (
+                  <div className="kb-drop-text">
+                    <strong>{kbSelectedFiles.length} file(s) selected</strong>
+                    <span>{kbSelectedFiles.map(f => f.name).join(", ")}</span>
+                  </div>
+                ) : (
+                  <div className="kb-drop-text">
+                    <strong>Click to select files</strong>
+                    <span>Supports .pdf and .txt files</span>
+                  </div>
+                )}
+              </div>
+              {kbSelectedFiles.length > 0 && (
+                <button className="kb-upload-btn" onClick={uploadKbFiles} disabled={kbUploading}>
+                  {kbUploading ? <><FaSpinner className="spin-icon" /> Processing...</> : `Upload ${kbSelectedFiles.length} File(s)`}
+                </button>
               )}
-              <textarea placeholder="Content..." value={kbContent} onChange={e => setKbContent(e.target.value)} className="kb-textarea" rows={6} />
-              <button className="upload-btn" onClick={uploadKB}>Add to Knowledge Base</button>
-              {kbMsg && <div className="upload-status">{kbMsg}</div>}
+
+              {/* Upload Results */}
+              {kbUploadResults && (
+                <div className="kb-results">
+                  <div className="kb-results-summary">{kbUploadResults.message}</div>
+                  {(kbUploadResults.results || []).map((r, i) => (
+                    <div key={i} className={`kb-result-item ${r.status}`}>
+                      <span className="kb-result-icon">{r.status === "success" ? <FaCheckCircle /> : r.status === "skipped" ? "⏩" : <FaTimesCircle />}</span>
+                      <span className="kb-result-name">{r.filename}</span>
+                      {r.chunks > 0 && <span className="kb-result-chunks">{r.chunks} chunks</span>}
+                      {r.error && <span className="kb-result-error">{r.error}</span>}
+                      {r.reason && <span className="kb-result-reason">{r.reason}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Ingested Documents Table ── */}
+            <div className="kb-section">
+              <div className="kb-section-header">
+                <h3 className="kb-section-title">📋 Ingested Documents ({kbFiles.length})</h3>
+                <button className="kb-refresh-btn" onClick={fetchKbFiles} disabled={kbFilesLoading}>
+                  {kbFilesLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+              {kbFiles.length > 0 ? (
+                <div className="kb-files-table">
+                  <div className="kb-files-header">
+                    <span>Filename</span><span>Category</span><span>Chunks</span><span>Ingested</span><span></span>
+                  </div>
+                  {kbFiles.map((f, i) => (
+                    <div key={i} className="kb-files-row">
+                      <span className="kb-file-name" title={f.filename}>{f.filename}</span>
+                      <span className="kb-file-cat">{(f.folder || "").replace(/_/g, " ")}</span>
+                      <span className="kb-file-chunks">{f.chunk_count}</span>
+                      <span className="kb-file-date">{f.ingested_at ? new Date(f.ingested_at).toLocaleDateString() : "—"}</span>
+                      <button className="kb-file-del" onClick={() => deleteKbFile(f.file_hash, f.filename)} disabled={kbDeleting === f.file_hash} title="Delete">
+                        {kbDeleting === f.file_hash ? <FaSpinner className="spin-icon" /> : <FaTrash />}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="kb-empty">No files ingested yet. Upload files above to populate the knowledge base.</div>
+              )}
+            </div>
+
+            {/* ── Quick Text Entry (Collapsed) ── */}
+            <div className="kb-section">
+              <button className="kb-text-toggle" onClick={() => setKbTextOpen(!kbTextOpen)}>
+                {kbTextOpen ? <FaChevronDown /> : <FaChevronRight />}
+                <span>📝 Quick Text Entry</span>
+              </button>
+              {kbTextOpen && (
+                <div className="kb-form">
+                  <select value={kbCategory} onChange={e => setKbCategory(e.target.value)} className="kb-select">
+                    <option value="resource">Resource</option>
+                    <option value="interview">Interview Experience</option>
+                    <option value="alumni">Alumni Profile</option>
+                    <option value="roadmap">Skill Roadmap</option>
+                  </select>
+                  <input placeholder="Title" value={kbTitle} onChange={e => setKbTitle(e.target.value)} className="context-input" />
+                  {(kbCategory === "interview" || kbCategory === "alumni") && (
+                    <input placeholder="Company" value={kbCompany} onChange={e => setKbCompany(e.target.value)} className="context-input" />
+                  )}
+                  <textarea placeholder="Content..." value={kbContent} onChange={e => setKbContent(e.target.value)} className="kb-textarea" rows={6} />
+                  <button className="upload-btn" onClick={uploadKB}>Add to Knowledge Base</button>
+                  {kbMsg && <div className="upload-status">{kbMsg}</div>}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -1,4 +1,18 @@
 {
+  "placement_admin": {
+    "name": "Placement Cell Admin",
+    "roll_no": "placement_admin",
+    "department": "Placement Cell",
+    "password_hash": "c5a3cbc1cf2445b04824452cc3b4810f:242ad28ddd468ee816f634cad52b72b4502167527508fababae40e8b1d97b6c2",
+    "role": "placement_cell",
+    "skills": [],
+    "college_email": "placement@svecw.edu.in",
+    "passing_out_year": 0,
+    "year_of_study": 0,
+    "password_is_default": false,
+    "resume_uploaded": false,
+    "conversations": {}
+  },
   "24b01a1275": {
     "name": "Mounika",
     "roll_no": "24b01a1275",

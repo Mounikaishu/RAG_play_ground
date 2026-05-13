@@ -1,0 +1,148 @@
+{
+  "files": {
+    "eb8a6f77309999168d9facdb96dd93bf6f6c3e01efbbea9a03d2e163f8aa482e": {
+      "filename": "meera_krishnan_nvidia_2022.txt",
+      "folder": "alumni_resumes",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:18.708433",
+      "metadata_summary": {
+        "student_name": "MEERA KRISHNAN",
+        "company": "NVIDIA",
+        "role": "AI Research Engineer"
+      }
+    },
+    "69546a8f67a383323ff109e35ae7c9c3dbf57a12e694faf70a5461b97463b684": {
+      "filename": "priya_sharma_google_2023.txt",
+      "folder": "alumni_resumes",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:25.141594",
+      "metadata_summary": {
+        "student_name": "Priya Sharma",
+        "company": "Google",
+        "role": "ML Engineer"
+      }
+    },
+    "c030ce014cbb8c398108ede63a0ad3c3f75754a3b4e85aa1b96bf85eb37613ce": {
+      "filename": "rahul_verma_amazon_2023.txt",
+      "folder": "alumni_resumes",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:35.763771",
+      "metadata_summary": {
+        "student_name": "RAHUL VERMA",
+        "company": "Amazon",
+        "role": "SDE-1"
+      }
+    },
+    "ca55a2b0b815a18d56f482f1bd670dd398126b57dddca5aeeb8c4e32211d7a32": {
+      "filename": "sneha_reddy_microsoft_2022.txt",
+      "folder": "alumni_resumes",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:43.658944",
+      "metadata_summary": {
+        "student_name": "Sneha Reddy",
+        "company": "Microsoft",
+        "role": "Full-Stack Developer"
+      }
+    },
+    "98cc3c8d7b2a220064c291ec04648698b01a5f6849b0ac0a7cbbec7aa15aae9a": {
+      "filename": "Amazon_SDE1_AllRounds.txt",
+      "folder": "interview_experiences",
+      "collection": "interview_experiences",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:43.865015",
+      "metadata_summary": {
+        "company": "Amazon",
+        "role": "SDE-1",
+        "round": "all_rounds",
+        "difficulty": "Hard"
+      }
+    },
+    "70f50ee14cda072aa711fc43c13784dde0bbc18cebcdae82251544e3f20041ae": {
+      "filename": "GoldmanSachs_SWE_AllRounds.txt",
+      "folder": "interview_experiences",
+      "collection": "interview_experiences",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:44.076816",
+      "metadata_summary": {
+        "company": "Goldman Sachs",
+        "role": "Software Engineer",
+        "round": "all_rounds",
+        "difficulty": "Hard"
+      }
+    },
+    "9ec5891262b142f222764e19265dcd184e27c3b34867196e073532117319c719": {
+      "filename": "Google_SWE_Technical.txt",
+      "folder": "interview_experiences",
+      "collection": "interview_experiences",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:44.271681",
+      "metadata_summary": {
+        "company": "Google",
+        "role": "Software Engineer L3",
+        "round": "system_design, behavioral",
+        "difficulty": "Hard"
+      }
+    },
+    "5ff1da906e7c98c464ead1489ffa146677153babb5dff3e6d1c40ffa8af4eddf": {
+      "filename": "Microsoft_SDEIntern_AllRounds.txt",
+      "folder": "interview_experiences",
+      "collection": "interview_experiences",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:44.469493",
+      "metadata_summary": {
+        "company": "Microsoft",
+        "role": "SDE Intern",
+        "round": "all_rounds",
+        "difficulty": "Medium"
+      }
+    },
+    "6439b9f9a7686b197729c3875d8fea4a6a48500f673f3c432c945bf97bc71a46": {
+      "filename": "ats_resume_guide.txt",
+      "folder": "placement_materials",
+      "collection": "placement_materials_collection",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:44.681922",
+      "metadata_summary": {
+        "type": "ats_guide"
+      }
+    },
+    "3c59524d541fddc8e9a7f3e34e73e570bef71952ce291858547978824761c8dd": {
+      "filename": "dsa_top50_questions.txt",
+      "folder": "placement_materials",
+      "collection": "placement_materials_collection",
+      "chunk_count": 2,
+      "ingested_at": "2026-05-10T16:23:44.907842",
+      "metadata_summary": {
+        "type": "dsa_questions"
+      }
+    },
+    "0bbb1c2371fcbad262cdd592f247e0de70078e9bcc9882609fe97c9d7156baa2": {
+      "filename": "placement_strategy_guide.txt",
+      "folder": "placement_materials",
+      "collection": "placement_materials_collection",
+      "chunk_count": 1,
+      "ingested_at": "2026-05-10T16:23:45.150259",
+      "metadata_summary": {
+        "type": "ats_guide"
+      }
+    },
+    "00797a8ca6b5e4ba05f3a1b1d9ed19f9d91ee1ea604fb97dbc3d21f3b75c50e3": {
+      "filename": "Roshini_RESUME.pdf",
+      "folder": "alumni_resumes",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 2,
+      "ingested_at": "2026-05-13T13:28:15.776996",
+      "metadata_summary": {
+        "student_name": "RUTTALA ROSHINI",
+        "company": "Not Specified",
+        "role": "Mechanical Engineering Student"
+      }
+    }
+  },
+  "last_run": "2026-05-13T13:28:15.777009",
+  "version": "1.0"
+}

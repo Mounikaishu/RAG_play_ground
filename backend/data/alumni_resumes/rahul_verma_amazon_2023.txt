@@ -1,0 +1,49 @@
+RAHUL VERMA
+SDE-1 | Amazon | Batch of 2023
+Department: Computer Science & Engineering
+
+EDUCATION
+B.Tech in Computer Science — Sri Vishnu Engineering College for Women (2019-2023)
+CGPA: 9.0/10
+
+SKILLS
+Java, Spring Boot, Microservices, AWS, System Design, Data Structures, Algorithms,
+REST APIs, PostgreSQL, Redis, Docker, Kubernetes, CI/CD, Git, Python, JavaScript
+
+EXPERIENCE
+SDE-1 — Amazon (2023 - Present)
+- Building scalable microservices for Amazon's fulfillment platform
+- Designed and implemented a distributed task scheduling system
+- Optimized database queries reducing response time by 50%
+- Mentoring new hires on coding standards and system design
+
+PROJECTS
+1. Distributed Task Scheduler
+   - Built a fault-tolerant task scheduling system using Java and Redis
+   - Handles 10K+ concurrent tasks with priority-based execution
+   - Implemented retry logic with exponential backoff
+
+2. E-Commerce Backend API
+   - Full REST API with Spring Boot for product catalog, cart, orders
+   - Integrated Stripe payment gateway and JWT authentication
+   - Deployed on AWS EC2 with RDS and ElastiCache
+
+3. URL Shortener Service
+   - High-throughput URL shortening service using consistent hashing
+   - Handles 1M+ requests/day with sub-10ms response time
+   - Built with Java, Redis for caching, PostgreSQL for persistence
+
+PREPARATION STRATEGY
+- Solved 400+ problems on LeetCode and Codeforces
+- Focused heavily on Data Structures: arrays, trees, graphs, dynamic programming
+- Practiced system design daily for 2 months before placement season
+- Built a distributed system project to demonstrate scalability knowledge
+- Read "Designing Data-Intensive Applications" cover to cover
+
+ADVICE FOR JUNIORS
+Master arrays, trees, and graphs — they cover 70% of interview questions. Don't just
+solve problems, understand the patterns. System design is crucial for top companies.
+Build at least one project that involves distributed systems or microservices.
+Amazon's leadership principles matter — prepare behavioral examples for each one.
+
+PLACEMENT PACKAGE: 32 LPA

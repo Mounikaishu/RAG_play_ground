@@ -1,7 +1,4 @@
-import chromadb
-
-# Initialize Chroma client
-client = chromadb.Client()
+from knowledge_base.collections import client
 
 # Base collection name for single-resume mode
 collection_name = "resume_collection"

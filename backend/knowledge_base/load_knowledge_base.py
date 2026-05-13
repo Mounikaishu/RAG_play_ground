@@ -1,0 +1,188 @@
+"""
+Knowledge Base Loader — Startup orchestrator for the ingestion pipeline.
+
+Called on FastAPI startup to:
+1. Ensure data directories exist
+2. Seed synthetic baseline data (if collections are empty)
+3. Scan all data folders for PDF/TXT files
+4. Process new files through the appropriate pipelines
+5. Report ingestion summary
+
+Supports:
+- Incremental ingestion (only new/modified files)
+- Full rebuild via rebuild_knowledge_base()
+- Graceful error handling per-file
+"""
+
+import time
+import json
+import os
+
+from knowledge_base.file_scanner import scan_all_folders, ensure_data_directories
+from knowledge_base.ingestion_pipeline import process_files
+from knowledge_base.ingestion_registry import clear_registry, get_registry_stats
+from knowledge_base.kb_seeder import seed_knowledge_base
+from knowledge_base.collections import get_collection_count
+
+# Admin credentials
+ADMIN_ROLL_NO = "placement_admin"
+ADMIN_PASSWORD = "admin@svecw2026"
+
+
+def ensure_admin_account():
+    """Create or fix the placement cell admin account on startup."""
+    from auth import hash_password
+
+    users_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "users.json")
+
+    # Load existing users
+    users = {}
+    if os.path.exists(users_file):
+        try:
+            with open(users_file, "r") as f:
+                users = json.load(f)
+        except Exception:
+            users = {}
+
+    # Check if admin needs creation or password fix
+    admin = users.get(ADMIN_ROLL_NO)
+    needs_update = (
+        admin is None
+        or admin.get("password_hash") == "placeholder_needs_rehash"
+        or admin.get("role") != "placement_cell"
+    )
+
+    if needs_update:
+        pw_hash = hash_password(ADMIN_PASSWORD)
+        users[ADMIN_ROLL_NO] = {
+            "name": "Placement Cell Admin",
+            "roll_no": ADMIN_ROLL_NO,
+            "department": "Placement Cell",
+            "password_hash": pw_hash,
+            "role": "placement_cell",
+            "skills": [],
+            "college_email": "placement@svecw.edu.in",
+            "passing_out_year": 0,
+            "year_of_study": 0,
+            "password_is_default": False,
+            "resume_uploaded": False,
+            "conversations": {},
+        }
+        with open(users_file, "w") as f:
+            json.dump(users, f, indent=2)
+        print("👤 Placement cell admin account created/updated.")
+    else:
+        print("👤 Placement cell admin account OK.")
+
+
+def load_knowledge_base():
+    """
+    Main startup function — loads and processes all institutional knowledge.
+
+    Flow:
+    1. Create data directories if missing
+    2. Seed synthetic baseline data (alumni profiles, interviews, roadmaps)
+    3. Scan data folders for files
+    4. Process new files (skip already-ingested)
+    5. Print summary
+    """
+    print("\n" + "=" * 70)
+    print("🏛️  INSTITUTIONAL KNOWLEDGE BASE — LOADING")
+    print("=" * 70)
+    start_time = time.time()
+
+    # Step 0: Ensure placement admin account exists
+    ensure_admin_account()
+
+    # Step 1: Ensure directories
+    ensure_data_directories()
+
+    # Step 2: Seed synthetic baseline (opt-in — only when SEED_KB=true env var is set)
+    seed_knowledge_base()
+
+    # Step 3: Scan all folders
+    print("\n📂 Scanning data folders for new files...")
+    folder_files = scan_all_folders()
+
+    # Step 4: Process each folder
+    total_processed = 0
+    total_skipped = 0
+    total_errors = 0
+
+    for folder_type, files in folder_files.items():
+        if not files:
+            continue
+
+        print(f"\n🔄 Processing {folder_type} ({len(files)} files)...")
+        result = process_files(files, folder_type)
+
+        total_processed += result["processed"]
+        total_skipped += result["skipped"]
+        total_errors += result["errors"]
+
+        # Print per-folder summary
+        if result["processed"] > 0:
+            print(f"   ✅ {result['processed']} new files ingested")
+        if result["skipped"] > 0:
+            print(f"   ⏩ {result['skipped']} files skipped (already ingested)")
+        if result["errors"] > 0:
+            print(f"   ❌ {result['errors']} files failed")
+
+    # Step 5: Summary
+    elapsed = time.time() - start_time
+    print("\n" + "-" * 70)
+    print("📊 INGESTION SUMMARY")
+    print("-" * 70)
+    print(f"   New files processed:  {total_processed}")
+    print(f"   Files skipped:        {total_skipped}")
+    print(f"   Errors:               {total_errors}")
+    print(f"   Time elapsed:         {elapsed:.2f}s")
+
+    # Collection stats
+    print("\n📦 COLLECTION SIZES:")
+    collections = [
+        "institutional_kb",
+        "interview_experiences",
+        "alumni_resumes",
+        "placement_materials",
+        "student_resumes",
+    ]
+    for coll in collections:
+        count = get_collection_count(coll)
+        if count > 0:
+            print(f"   • {coll}: {count} chunks")
+
+    # Registry stats
+    reg_stats = get_registry_stats()
+    print(f"\n📋 Registry: {reg_stats['total_files']} files tracked")
+    if reg_stats.get("by_folder"):
+        for folder, count in reg_stats["by_folder"].items():
+            print(f"   • {folder}: {count} files")
+
+    print("\n" + "=" * 70)
+    print("🏛️  KNOWLEDGE BASE READY")
+    print("=" * 70 + "\n")
+
+
+def rebuild_knowledge_base():
+    """
+    Force a complete rebuild of all file-based collections.
+
+    Clears the ingestion registry and reprocesses all files.
+    Does NOT clear synthetic seed data.
+    """
+    print("\n🔄 REBUILDING KNOWLEDGE BASE...")
+    print("   Clearing ingestion registry...")
+    clear_registry()
+
+    # Clear file-based collections (preserve synthetic seed data)
+    from knowledge_base.collections import client
+    for coll_name in ["alumni_resumes_collection", "placement_materials_collection"]:
+        try:
+            client.delete_collection(coll_name)
+            print(f"   🗑️ Cleared {coll_name}")
+        except Exception:
+            pass
+
+    # Re-run the loader
+    load_knowledge_base()

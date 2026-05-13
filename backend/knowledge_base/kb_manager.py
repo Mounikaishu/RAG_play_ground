@@ -5,6 +5,7 @@ Knowledge Base Manager — High-level API for managing the institutional KB.
 from knowledge_base.collections import (
     store_kb_document, search_kb, get_all_kb_stats,
     delete_kb_document, list_kb_documents, get_collection_count,
+    search_alumni_resumes, search_placement_materials,
 )
 
 
@@ -62,6 +63,17 @@ def search_interviews(query, company=None, k=5):
     return search_kb(query, "interview_experiences", k=k, where=where)
 
 
+def search_alumni(query, company=None, department=None, batch=None, k=5):
+    """Search alumni resume embeddings with optional filters."""
+    return search_alumni_resumes(query, k=k, company=company,
+                                  department=department, batch=batch)
+
+
+def search_materials(query, material_type=None, k=5):
+    """Search placement materials with optional type filter."""
+    return search_placement_materials(query, k=k, material_type=material_type)
+
+
 def get_kb_stats():
     """Get knowledge base statistics."""
     stats = get_all_kb_stats()
@@ -69,5 +81,7 @@ def get_kb_stats():
         "total_documents": sum(stats.values()),
         "institutional_kb": stats.get("institutional_kb", 0),
         "interview_experiences": stats.get("interview_experiences", 0),
+        "alumni_resumes": stats.get("alumni_resumes", 0),
+        "placement_materials": stats.get("placement_materials", 0),
         "student_resumes": stats.get("student_resumes", 0),
     }

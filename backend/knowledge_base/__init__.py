@@ -1,1 +1,1 @@
-# Knowledge Base package
+# Knowledge Base Package
