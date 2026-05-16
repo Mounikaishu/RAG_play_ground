@@ -6,10 +6,9 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Models to try in order (fallback chain)
 MODELS = [
-    "gemini-3-flash-preview",
     "gemini-2.0-flash",
-    "gemini-2.0-pro",
-    "gemini-1.0-pro"
+    "gemini-1.5-flash",
+    "gemini-3-flash-preview"
 ]
 
 MAX_RETRIES = 2
