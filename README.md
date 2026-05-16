@@ -6,7 +6,7 @@ The project is structured to be straightforward and easy to understand. Below ar
 
 ---
 
-## 1. High-Level Architecture
+## 1. Architecture
 
 This diagram shows how the main technologies in the project connect to each other.
 
@@ -17,10 +17,7 @@ flowchart TD
     
     Backend -->|Stores & Searches Resumes/KB| VectorDB[(ChromaDB Vector Store)]
     Backend -->|Sends Prompts| LLM[/Google Gemini AI/]
-    Backend -->|Manages AI Steps| LangGraph[[LangGraph Workflow]]
 ```
-
-### How to explain this:
 * **React Frontend:** The user interface where students and admins click buttons and chat. It's built for simplicity and runs in the browser.
 * **FastAPI Backend:** The engine of the application. It receives requests from the frontend, coordinates tasks, and sends data back securely.
 * **ChromaDB:** A special database that stores text as "vectors" (mathematical representations). This allows the system to perform *semantic searches* (finding text with similar meanings, not just exact keywords).
@@ -38,8 +35,6 @@ flowchart LR
     Extract --> Chunk[Split into Small Chunks]
     Chunk --> Store[(Save to ChromaDB)]
 ```
-
-### How to explain this:
 * **Extract Raw Text:** The system uses a PDF reader to grab all the plain text from the uploaded file, stripping away the images and formatting.
 * **Split into Small Chunks:** Instead of feeding a huge document to the AI all at once, the text is broken down into smaller pieces (chunks). This makes it much faster and more accurate for the database to search through later.
 * **Save to ChromaDB:** These chunks are saved into the vector database so they can be quickly retrieved whenever a student asks a relevant question.
@@ -57,63 +52,39 @@ flowchart TD
     
     Decide -->|Career Advice| Mentor[[Career Mentor Node]]
     Decide -->|Interview Prep| Interview[[Interview Coach Node]]
-    Decide -->|Resume Check| ATS[[ATS Analyzer Node]]
     
     Mentor --> Gen{Gemini AI Generates Answer}
     Interview --> Gen
-    ATS --> Gen
     
     Gen --> Reply([Show Answer to Student])
 ```
-
-### How to explain this:
 * **Fetch Resume & Knowledge Base:** Before answering, the system securely grabs the student's resume and relevant placement materials from the database. This gives the AI the personal *context* it needs to give accurate advice.
 * **What is the Goal?:** Depending on what the student wants, the system routes the question to a specialized "Node" (a specific instruction set for the AI).
-* **Nodes (Mentor, Interview, ATS):** Each node gives the AI a different persona and set of rules. For example, the Interview Coach Node is told to act like a strict technical interviewer.
+* **Nodes (Mentor, Interview):** Each node gives the AI a different persona and set of rules. For example, the Interview Coach Node is told to act like a strict technical interviewer.
 * **Generate Answer:** The AI combines the student's question, the retrieved context, and its specific persona instructions to generate a highly personalized response.
 
 ---
+---
 
-## 4. Access & Session Management
+## 4. Placement Cell Resume Evaluation
 
-To make the platform easy to use for demonstrations, the traditional login system has been simplified.
+The platform allows the placement cell to automatically evaluate student resumes against industry standards, giving them instant insights into student readiness.
 
 ```mermaid
 flowchart TD
-    Click([User Clicks 'Enter as Student']) --> Token[Browser Generates Random Token]
-    Token --> Request[Request Dashboard Data]
-    Request --> Provision{Backend Provisions Clean Slate}
-    Provision --> Return([Return Dashboard to User])
+    Upload[/Admin Uploads Student Resume/] --> Analyze{AI Analyzes Resume}
+    Analyze --> ATS([ATS Scoring & Keyword Check])
+    Analyze --> Feedback([Detailed Strengths & Weaknesses])
+    ATS --> Display([Show Evaluation on Dashboard])
+    Feedback --> Display
 ```
-
-### How to explain this:
-* **Auth-Free Demo Mode:** There are no complex passwords. Users simply click a button to enter the application immediately.
-* **Per-Tab Isolation:** The system uses browser storage in a way that treats every single browser tab as a completely different user. If you open a new tab, you get a fresh, blank session with no old data left over. This is perfect for testing different scenarios from a clean slate.
+* **Automated Scoring:** The AI scans the uploaded resume just like an Applicant Tracking System (ATS), checking for crucial keywords and proper formatting.
+* **Instant Feedback:** It generates a detailed report highlighting what the student did well and what areas (like missing skills or vague descriptions) need improvement before actual company placements.
+* **Dashboard View:** Admins can see this evaluation immediately on their dashboard, helping them identify which students need the most help.
 
 ---
 
-## 5. AI System Evaluation (Ragas Framework)
-
-To ensure the AI gives accurate and reliable advice, the system's responses are evaluated using the **Ragas** framework.
-
-```mermaid
-flowchart LR
-    Log[(Capture AI Answers & Context)] --> Eval{Run Ragas Metrics}
-    Eval --> Metric1([Faithfulness])
-    Eval --> Metric2([Answer Relevancy])
-    Eval --> Metric3([Context Precision])
-    Eval --> Metric4([Context Recall])
-```
-
-### How to explain this:
-* **Capture Data:** When the AI answers a question, the system logs the student's question, the resume/guides retrieved from the database, and the AI's final answer.
-* **Faithfulness:** This checks if the AI's answer is based *strictly* on the provided context, ensuring it doesn't hallucinate or make up facts.
-* **Answer Relevancy:** This ensures the AI actually addressed the user's specific question instead of going off-topic.
-* **Context Precision & Recall:** This measures the search database (ChromaDB) performance. It checks if the system retrieved the *most useful* pieces of information and didn't miss any critical details from the knowledge base.
-
----
-
-## 6. Placement Cell Admin Workflow
+## 5. Placement Cell Admin Workflow
 
 The platform features a dedicated Admin Dashboard that empowers the placement cell to manage institutional data dynamically.
 
@@ -124,8 +95,35 @@ flowchart TD
     Extract --> Ingest[(Save Chunks to ChromaDB Vector Store)]
     Ingest --> Success([Show Success Message to Admin])
 ```
-
-### How to explain this:
 * **Dynamic Uploads:** Admins can drag and drop PDFs, placement policies, and sample resumes straight into the dashboard interface.
 * **Instant Processing:** The backend automatically reads the file, breaks it into searchable chunks, and saves it into the vector database (ChromaDB) in real-time.
 * **Immediate Availability:** As soon as a document is uploaded, the AI begins using that new information to answer student questions without requiring any system restarts or manual developer updates.
+
+---
+
+## 6. Data Ingestion vs. Retrieval Summary
+
+To clarify how data flows in and out of the vector database (ChromaDB), here is a summary of exactly where ingestion and retrieval occur:
+
+```mermaid
+flowchart LR
+    %% Ingestion (Saving Data)
+    AdminUpload[/Admin Uploads Docs/] --> Ingest[Process & Chunk]
+    StudentUpload[/Student Uploads Resume/] --> Ingest
+    Ingest --> DB[(ChromaDB Vector Store)]
+
+    %% Retrieval (Fetching Data)
+    DB --> Retrieve[Semantic Search & Retrieve]
+    Retrieve --> Chat([AI Chat System])
+    Retrieve --> Eval([Resume Evaluator])
+```
+
+### 📥 Where Data Ingestion Happens (Saving to Database)
+Data ingestion is the process of extracting text from files, splitting it into chunks, and saving it to ChromaDB. This happens in two main places:
+* **Placement Cell Admin Dashboard:** When an admin uploads institutional documents (like placement policies, interview guides, or company rules).
+* **Student Resume Upload:** When a student uploads their personal resume so the system can evaluate it or use it for personalized chat context.
+
+### 📤 Where Data Retrieval Happens (Fetching from Database)
+Data retrieval is the process of searching ChromaDB for the most relevant information to help the AI. This happens in:
+* **The AI Chat Workflow:** Every time a student asks a question in the chat, the system searches the database to retrieve relevant placement guidelines and the student's own resume. This provides the AI with the factual *context* it needs to give accurate advice.
+* **Resume Evaluation Workflow:** When the system automatically scores a student's resume, it retrieves industry standards or specific job criteria from the knowledge base to compare against the student's profile.
