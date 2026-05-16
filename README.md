@@ -66,64 +66,60 @@ flowchart TD
 ---
 ---
 
-## 4. Placement Cell Resume Evaluation
+## 4. Institutional Knowledge Management
 
-The platform allows the placement cell to automatically evaluate student resumes against industry standards, giving them instant insights into student readiness.
-
-```mermaid
-flowchart TD
-    Upload[/Admin Uploads Student Resume/] --> Analyze{AI Analyzes Resume}
-    Analyze --> ATS([ATS Scoring & Keyword Check])
-    Analyze --> Feedback([Detailed Strengths & Weaknesses])
-    ATS --> Display([Show Evaluation on Dashboard])
-    Feedback --> Display
-```
-* **Automated Scoring:** The AI scans the uploaded resume just like an Applicant Tracking System (ATS), checking for crucial keywords and proper formatting.
-* **Instant Feedback:** It generates a detailed report highlighting what the student did well and what areas (like missing skills or vague descriptions) need improvement before actual company placements.
-* **Dashboard View:** Admins can see this evaluation immediately on their dashboard, helping them identify which students need the most help.
-
----
-
-## 5. Placement Cell Admin Workflow
-
-The platform features a dedicated Admin Dashboard that empowers the placement cell to manage institutional data dynamically.
+The placement cell can easily upload and manage institutional knowledge, such as alumni interview experiences, company guidelines, and placement policies.
 
 ```mermaid
 flowchart TD
-    Upload[/Admin Uploads PDF Guide/] --> Send[Dashboard Sends File to Backend]
-    Send --> Extract{Backend Extracts Text & Splits into Chunks}
-    Extract --> Ingest[(Save Chunks to ChromaDB Vector Store)]
-    Ingest --> Success([Show Success Message to Admin])
+    Upload[/Admin Uploads Alumni PDFs & Guides/] --> Send[Dashboard Sends to Backend]
+    Send --> Extract{Extract Text & Split into Chunks}
+    Extract --> Ingest[(Store in ChromaDB Vector Store)]
+    Ingest --> Success([Show Success Message])
 ```
-* **Dynamic Uploads:** Admins can drag and drop PDFs, placement policies, and sample resumes straight into the dashboard interface.
-* **Instant Processing:** The backend automatically reads the file, breaks it into searchable chunks, and saves it into the vector database (ChromaDB) in real-time.
-* **Immediate Availability:** As soon as a document is uploaded, the AI begins using that new information to answer student questions without requiring any system restarts or manual developer updates.
+* **Alumni Experiences & Guides:** Admins can drag and drop PDFs containing valuable past interview experiences or company-specific preparation guides.
+* **Automated Processing:** The system automatically extracts the text and breaks it into smaller chunks for efficient searching.
+* **Persistent Storage:** These chunks are saved into the ChromaDB vector store, instantly becoming part of the AI's knowledge base to help future students.
 
 ---
 
-## 6. Data Ingestion vs. Retrieval Summary
+## 5. Keyword-Based Resume Search
 
-To clarify how data flows in and out of the vector database (ChromaDB), here is a summary of exactly where ingestion and retrieval occur:
+The platform empowers the placement cell to quickly find specific student candidates based on industry keywords.
+
+```mermaid
+flowchart TD
+    Query[/Admin Enters Keywords e.g., 'React', 'Python'/] --> Search{Search ChromaDB Database}
+    Search --> Match[(Match Keywords with Student Resumes)]
+    Match --> Display([Display Ranked List of Students])
+```
+* **Targeted Search:** When a company requests students with specific skills (e.g., "Data Science" or "React"), the admin can simply search for these keywords.
+* **Vector Matching:** The system queries the ChromaDB vector store to find resumes that closely match the requested skills.
+* **Efficient Shortlisting:** The admin instantly receives a ranked list of relevant student profiles, saving hours of manual resume screening.
+
+---
+
+## 6. Complete System Ingestion & Retrieval Flow
+
+To see the big picture, here is exactly where data enters (Ingestion) and exits (Retrieval) the vector database across the entire platform.
 
 ```mermaid
 flowchart LR
-    %% Ingestion (Saving Data)
-    AdminUpload[/Admin Uploads Docs/] --> Ingest[Process & Chunk]
+    %% Data Ingestion (Saving)
+    AdminUpload[/Admin Uploads Alumni PDFs & Guides/] --> Ingest[Process & Chunk]
     StudentUpload[/Student Uploads Resume/] --> Ingest
     Ingest --> DB[(ChromaDB Vector Store)]
 
-    %% Retrieval (Fetching Data)
-    DB --> Retrieve[Semantic Search & Retrieve]
-    Retrieve --> Chat([AI Chat System])
-    Retrieve --> Eval([Resume Evaluator])
+    %% Data Retrieval (Fetching)
+    DB --> Retrieve[Semantic Search]
+    Retrieve --> Chat([Student AI Chat Context])
+    Retrieve --> AdminSearch([Admin Keyword Resume Search])
 ```
 
 ### 📥 Where Data Ingestion Happens (Saving to Database)
-Data ingestion is the process of extracting text from files, splitting it into chunks, and saving it to ChromaDB. This happens in two main places:
-* **Placement Cell Admin Dashboard:** When an admin uploads institutional documents (like placement policies, interview guides, or company rules).
-* **Student Resume Upload:** When a student uploads their personal resume so the system can evaluate it or use it for personalized chat context.
+* **Placement Cell Dashboard:** When admins upload institutional documents, alumni PDFs, and interview experiences.
+* **Student Dashboard:** When students upload their personal resumes to the platform.
 
 ### 📤 Where Data Retrieval Happens (Fetching from Database)
-Data retrieval is the process of searching ChromaDB for the most relevant information to help the AI. This happens in:
-* **The AI Chat Workflow:** Every time a student asks a question in the chat, the system searches the database to retrieve relevant placement guidelines and the student's own resume. This provides the AI with the factual *context* it needs to give accurate advice.
-* **Resume Evaluation Workflow:** When the system automatically scores a student's resume, it retrieves industry standards or specific job criteria from the knowledge base to compare against the student's profile.
+* **Student AI Chat:** When a student asks a question, the system retrieves the alumni guides and the student's own resume to provide the AI with accurate context.
+* **Admin Resume Search:** When the placement cell admin searches for specific keywords to shortlist candidates for upcoming company drives.
