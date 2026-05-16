@@ -7,6 +7,9 @@ from typing import TypedDict, List
 
 class PlacementState(TypedDict):
     user_id: str
+    student_name: str
+    student_dept: str
+    student_skills: str
     question: str
     mode: str  # "mentor", "interview_prep", "ats", "resume_match"
     context_kb: str

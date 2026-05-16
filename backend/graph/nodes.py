@@ -154,6 +154,9 @@ def mentor_node(state: PlacementState) -> PlacementState:
 
     prompt = f"""You are an AI Career Mentor at a university placement cell with deep knowledge of industry hiring.
 
+Student's Name: {state.get('student_name', 'Student')}
+Student's Department: {state.get('student_dept', 'Unknown')}
+Student's Known Skills: {state.get('student_skills', 'None specified')}
 Student's Resume Profile:
 {state.get('context_resume', 'No resume uploaded yet.')}
 
@@ -174,7 +177,10 @@ Conversation History:
 Student's Question:
 {state['question']}
 
-Guidelines:
+CRITICAL INSTRUCTIONS:
+- You are speaking directly to {state.get('student_name', 'Student')}.
+- DO NOT confuse the student with any names or profiles found in the "Alumni Career Journeys". Those are OTHER people who have graduated.
+- If the "Student's Resume Profile" says "No resume uploaded yet", DO NOT assume the student has any skills or background from the alumni profiles.
 - Provide personalized, actionable career guidance based on the student's profile and institutional data
 - Reference specific alumni success stories and roadmaps from the knowledge base
 - Give structured advice with clear steps, timelines, and priorities
@@ -193,6 +199,9 @@ def interview_prep_node(state: PlacementState) -> PlacementState:
 
     prompt = f"""You are an AI Interview Coach with access to real interview experiences from placed students.
 
+Student's Name: {state.get('student_name', 'Student')}
+Student's Department: {state.get('student_dept', 'Unknown')}
+Student's Known Skills: {state.get('student_skills', 'None specified')}
 Student's Resume:
 {state.get('context_resume', 'No resume uploaded yet.')}
 
@@ -214,7 +223,10 @@ Conversation History:
 Student's Question:
 {state['question']}
 
-Guidelines:
+CRITICAL INSTRUCTIONS:
+- You are speaking directly to {state.get('student_name', 'Student')}.
+- DO NOT confuse the student with any names or profiles found in the Alumni Career Profiles or Interview Experiences.
+- If the Student's Resume says "No resume uploaded yet", DO NOT assume they have the skills of the alumni.
 - Provide company-specific interview preparation based on real senior experiences
 - List expected questions with preparation strategies
 - Give round-wise preparation guidance
@@ -231,6 +243,9 @@ def ats_node(state: PlacementState) -> PlacementState:
     """ATS scoring and resume analysis node."""
     prompt = f"""You are an expert ATS (Applicant Tracking System) analyzer and resume reviewer.
 
+Student's Name: {state.get('student_name', 'Student')}
+Student's Department: {state.get('student_dept', 'Unknown')}
+Student's Known Skills: {state.get('student_skills', 'None specified')}
 Student's Resume Content:
 {state.get('context_resume', 'No resume uploaded.')}
 
@@ -266,6 +281,9 @@ def resume_match_node(state: PlacementState) -> PlacementState:
     """Resume matching against successful alumni profiles."""
     prompt = f"""You are an AI Resume Matching system comparing a student against successfully placed alumni.
 
+Student's Name: {state.get('student_name', 'Student')}
+Student's Department: {state.get('student_dept', 'Unknown')}
+Student's Known Skills: {state.get('student_skills', 'None specified')}
 Student's Current Resume:
 {state.get('context_resume', 'No resume uploaded.')}
 
@@ -279,7 +297,7 @@ Student's Question:
 {state['question']}
 
 Provide:
-1. **Match Analysis:** How does this student compare to placed alumni?
+1. **Match Analysis:** How does {state.get('student_name', 'Student')} compare to placed alumni? (DO NOT confuse the student with the alumni).
 2. **Skill Gap Analysis:** What skills are missing compared to successful candidates?
 3. **Matching Profiles:** Which alumni profiles are most similar?
 4. **Improvement Plan:** Specific steps to bridge the gap

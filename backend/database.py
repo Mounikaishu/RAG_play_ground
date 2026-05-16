@@ -84,6 +84,37 @@ def register_user(name: str, roll_no: str, department: str,
 
 def get_user(roll_no: str) -> Optional[dict]:
     """Get user by roll number."""
+    if roll_no.startswith("dummy_student_") or roll_no == "dummy_student":
+        return {
+            "name": "Student",
+            "roll_no": roll_no,
+            "department": "Not Specified",
+            "password_hash": "",
+            "role": "student",
+            "skills": [],
+            "college_email": f"{roll_no}@svecw.edu.in",
+            "passing_out_year": 2026,
+            "year_of_study": 3,
+            "password_is_default": False,
+            "resume_uploaded": False,
+            "conversations": {},
+        }
+    if roll_no.startswith("dummy_admin_") or roll_no == "dummy_admin":
+        return {
+            "name": "Placement Cell",
+            "roll_no": "dummy_admin",
+            "department": "Admin",
+            "password_hash": "",
+            "role": "placement_cell",
+            "skills": [],
+            "college_email": "admin@svecw.edu.in",
+            "passing_out_year": 0,
+            "year_of_study": 0,
+            "password_is_default": False,
+            "resume_uploaded": False,
+            "conversations": {},
+        }
+
     users = _load_users()
     user = users.get(roll_no)
     if user and user.get("passing_out_year"):

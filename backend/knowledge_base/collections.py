@@ -76,10 +76,18 @@ def search_kb(query: str, collection_name: str, k: int = 5, where: dict = None):
 
     try:
         results = collection.query(**kwargs)
-    except Exception:
-        # If where filter fails, retry without it
-        kwargs.pop("where", None)
-        results = collection.query(**kwargs)
+    except Exception as e:
+        # ChromaDB might throw an error if n_results > matched documents
+        if "where" in kwargs:
+            # If we had a where filter, it likely means no documents matched this user.
+            return []
+        
+        # If no where filter, try reducing n_results to 1 just in case
+        kwargs["n_results"] = 1
+        try:
+            results = collection.query(**kwargs)
+        except Exception:
+            return []
 
     items = []
     for doc, meta, dist in zip(

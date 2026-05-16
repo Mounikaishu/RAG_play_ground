@@ -22,68 +22,28 @@ function ScoreRing({ score, size = 64, strokeWidth = 5 }) {
   );
 }
 
-/* ========== LOGIN PAGE ========== */
-function LoginPage() {
-  const { login } = useAuth();
-  const [form, setForm] = useState({ roll_no: "", password: "" });
-  const [error, setError] = useState("");
-  const [warningMsg, setWarningMsg] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setError(""); setWarningMsg(""); setLoading(true);
-    try {
-      const res = await login(form.roll_no, form.password);
-      if (res.warning) {
-        setWarningMsg(res.warning);
-      }
-    } catch (err) {
-      if (err.response) {
-        const detail = err.response.data?.detail;
-        // Handle Pydantic validation errors (array of objects)
-        if (Array.isArray(detail)) {
-          setError(detail.map(d => d.msg || JSON.stringify(d)).join(", "));
-        } else if (typeof detail === "object" && detail !== null) {
-          setError(detail.msg || JSON.stringify(detail));
-        } else {
-          setError(detail || `Server error: ${err.response.status}`);
-        }
-      } else if (err.request) {
-        setError("Cannot reach backend. Is it running on https://rag-play-ground.onrender.com?");
-      } else {
-        setError(err.message || "Something went wrong.");
-      }
-    }
-    setLoading(false);
-  };
-
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+/* ========== ENTRY PAGE (BYPASS AUTH) ========== */
+function EntryPage() {
+  const { bypassLogin } = useAuth();
 
   return (
     <div className="login-page">
       <div className="login-bg-orb login-orb-1" />
       <div className="login-bg-orb login-orb-2" />
-      <div className="login-card">
+      <div className="login-card" style={{ textAlign: "center", padding: "40px" }}>
         <div className="login-brand">
           <div className="login-logo">🎓</div>
           <h1>PlaceAI</h1>
           <p>AI-Powered Placement & Career Guidance</p>
         </div>
-        <div className="login-tabs">
-          <button className="active">Student Login</button>
-        </div>
-        <form onSubmit={handleSubmit} className="login-form">
-          <input placeholder="Roll Number / Registration ID" value={form.roll_no} onChange={e => set("roll_no", e.target.value)} required />
-          <input placeholder="Password" type="password" value={form.password} onChange={e => set("password", e.target.value)} required />
-          <div className="login-info" style={{ fontSize: "0.82rem", color: "var(--color-text-secondary)", padding: "4px 0 8px", lineHeight: 1.4 }}>
-            🔑 Your account is created by the exam cell. Use your registration number and the default password provided to you.
-          </div>
-          {error && <div className="login-error">{error}</div>}
-          {warningMsg && <div className="login-success" style={{ color: "#f59e0b", fontSize: "0.85rem", padding: "8px 0" }}>{warningMsg}</div>}
-          <button type="submit" className="login-submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "30px" }}>
+          <button className="login-submit" onClick={() => bypassLogin("student")}>
+            Enter as Student
           </button>
-        </form>
+          <button className="login-submit" style={{ background: "var(--color-bg-elevated)", color: "var(--color-text-primary)", border: "1px solid var(--color-border)" }} onClick={() => bypassLogin("admin")}>
+            Enter as Placement Cell
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -780,7 +740,7 @@ function PlacementDashboard() {
 function AppContent() {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading-screen"><div className="loading-spinner" /><p>Loading PlaceAI...</p></div>;
-  if (!user) return <LoginPage />;
+  if (!user) return <EntryPage />;
   if (user.role === "placement_cell") return <PlacementDashboard />;
   return <StudentDashboard />;
 }

@@ -99,10 +99,19 @@ async def chat(
     user_data = _get_user_or_fail(authorization)
     roll_no = user_data["roll_no"]
 
+    from database import get_user
+    user = get_user(roll_no)
+    student_name = user.get("name", "Student") if user else "Student"
+    student_dept = user.get("department", "Unknown") if user else "Unknown"
+    student_skills = ", ".join(user.get("skills", [])) if user and user.get("skills") else "None specified"
+
     history = user_histories.get(roll_no, [])
 
     state = {
         "user_id": roll_no,
+        "student_name": student_name,
+        "student_dept": student_dept,
+        "student_skills": student_skills,
         "question": question,
         "mode": mode,
         "context_kb": "",
