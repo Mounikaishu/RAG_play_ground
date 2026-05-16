@@ -25,7 +25,6 @@ flowchart TD
 * **FastAPI Backend:** The engine of the application. It receives requests from the frontend, coordinates tasks, and sends data back securely.
 * **ChromaDB:** A special database that stores text as "vectors" (mathematical representations). This allows the system to perform *semantic searches* (finding text with similar meanings, not just exact keywords).
 * **Google Gemini AI:** The brain of the platform that generates the smart, human-like text responses for career guidance and resume analysis.
-* **LangGraph:** A tool that helps organize the AI's thought process into a step-by-step workflow (like a flowchart) so the AI knows exactly what to do next.
 
 ---
 
@@ -47,7 +46,7 @@ flowchart LR
 
 ---
 
-## 3. The AI Chat Workflow (LangGraph)
+## 3. The AI Chat Workflow
 
 When a student asks a question in the chat, the system doesn't just blindly send it to the AI. It follows a structured, smart path.
 
