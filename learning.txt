@@ -1,0 +1,112 @@
+================================================================================
+PLACEAI: THE DEFINITIVE, IN-DEPTH SYSTEM MANUAL & CODEBASE WALKTHROUGH
+================================================================================
+
+This document is an exhaustive, deep-dive explanation of the entire PlaceAI project. It is designed so that you can understand the theoretical concepts, the strategic decisions, and the exact code implementations in every single file. After reading this, you will be fully equipped to present, defend, and explain your project line-by-line.
+
+*Note on Architecture:* The platform is 100% student-focused. All login screens, authentication mechanisms (JWT/passwords), and administrative placement cell dashboards were deliberately stripped out. The goal was to create a frictionless, pure RAG sandbox where anyone can immediately test the AI capabilities using ephemeral session IDs.
+
+================================================================================
+PART 1: THEORETICAL FOUNDATIONS & STRATEGIES
+================================================================================
+Before looking at the code, you must deeply understand the concepts powering the platform.
+
+1. RAG (Retrieval-Augmented Generation)
+---------------------------------------
+What is it? RAG is a technique that gives an LLM (which has frozen, generalized knowledge) the ability to read your specific, private documents before answering a question.
+How it works in this project:
+- Phase 1: Ingestion. We take college-specific documents (alumni resumes, interview experiences), break them into chunks, convert them into mathematical vectors (Embeddings), and store them in a Vector Database (ChromaDB).
+- Phase 2: Retrieval & Generation. When a student asks a question, we convert the question into a vector, find the most mathematically similar document chunks in ChromaDB, and paste those chunks into the LLM's prompt. The LLM then reads those chunks and answers the user.
+Why RAG instead of Fine-Tuning?
+- Fine-Tuning teaches the LLM a new "style" or "behavior". It is very bad at memorizing new facts. It is also expensive and requires retraining constantly.
+- RAG acts like an "open-book test" for the LLM. It is cheap, highly accurate, prevents hallucinations (because you restrict the LLM to only use the provided context), and you can update the knowledge base instantly.
+
+2. Embeddings & Vector Databases
+---------------------------------------
+What are Embeddings? An embedding model takes human text and converts it into a dense vector (an array of numbers). The magic of embeddings is that texts with similar *meanings* end up mathematically close to each other in vector space. 
+Why ChromaDB?
+- ChromaDB is an open-source, embedded vector database. "Embedded" means it runs locally on your machine (`chroma_db/`). 
+- Alternatives:
+  - Pinecone / Weaviate: Cloud-based vector databases. Excellent for massive scale, but cost money.
+  - Elasticsearch / BM25 (Sparse Embeddings): These look for exact keyword matches. They are faster but fail if the user uses synonyms. Our Dense Embeddings understand context.
+
+3. LangGraph vs LangChain
+---------------------------------------
+Why LangGraph? Standard LangChain allows you to build linear "Chains". However, our application has complex logic (ATS scoring vs Interview Prep vs Career Guidance).
+- LangGraph models the application as a "State Graph" (a flowchart). 
+- It allows us to define "Nodes" (functions) and "Conditional Edges" (routing logic). It is much more robust for agentic workflows than simple chains.
+
+================================================================================
+PART 2: BACKEND CODEBASE EXPLANATION (FILE-BY-FILE)
+================================================================================
+
+FOLDER: backend/
+----------------
+
+1. main.py
+Working: This is the entry point of the server. 
+- FastApi App: `app = FastAPI(...)` initializes the web server.
+- Startup Event: `@app.on_event("startup")` runs `load_knowledge_base()`. This ensures the institutional data is loaded into the Vector DB before any student logs in.
+- Routers: `app.include_router(student_router)` attaches the API routes. (All auth and admin routers were removed).
+
+2. routers/student_router.py
+Working: This file contains the API endpoints.
+- `/upload-resume`: Receives a PDF and the `X-Session-ID`. Chunks it, stores it in ChromaDB explicitly tagged with the `X-Session-ID`.
+- `/chat`: Receives the question and mode. Constructs the `state` dictionary. Calls `placement_graph.invoke(state)` triggering LangGraph.
+- `/ats-score`: Uses `search_kb()` to retrieve the user's uploaded resume chunks. Tells the LLM to act as an ATS analyzer and output JSON.
+
+3. pdf_loader.py & chunker.py
+Working:
+- `load_pdf(file_path)`: Extracts raw string text from PDFs.
+- `chunk_text_with_overlap(text)`: Splits text into 1000-character chunks with a 100-character overlap so sentences aren't cleanly cut in half, preserving context.
+
+4. llm.py
+Working: The `llm_call(prompt)` function abstracts the complexity of calling the LLM API.
+
+FOLDER: backend/knowledge_base/
+-------------------------------
+
+1. kb_manager.py & collections.py
+Working: `kb_manager.py` connects to the local ChromaDB. `collections.py` defines the tables (`institutional_kb`, `student_resumes`) and provides the `search_kb()` logic.
+
+2. load_knowledge_base.py & ingestion_registry.py
+Working: On startup, this reads `backend/data/`. It hashes files to check `registry.json` preventing duplicate data ingestion.
+
+FOLDER: backend/graph/ (The LangGraph Engine)
+---------------------------------------------
+
+1. state.py
+Working: Defines `PlacementState` (a Python TypedDict) holding variables (`question`, `answer`, `context_resume`) passed between graph nodes.
+
+2. nodes.py
+Working: Contains the graph steps.
+- Retrieval Nodes: Look at `state["question"]`, call `search_kb()`, and save text. 
+  - *Bug Fix Strategy:* If no resume is uploaded, `retrieve_resume_node` explicitly returns `"No resume uploaded yet."` to prevent the LLM from reading alumni resumes and hallucinating that the student is an alumni.
+- Generation Nodes: Construct massive Prompts injecting the retrieved context, and call `llm_call()`.
+
+3. workflow.py
+Working: Assembles the graph using `StateGraph(PlacementState)`. Defines `route_mode(state)` to route users to the correct node based on their UI selection.
+
+================================================================================
+PART 3: FRONTEND CODEBASE EXPLANATION
+================================================================================
+
+FOLDER: frontend/src/
+---------------------
+
+1. App.js (The Monolith)
+Working: Handles the entire UI.
+- Stateless Session Strategy: Uses a React `useEffect` to generate a random string `sessionId` when the page loads. By NOT having a login database, every browser refresh is a blank slate. This guarantees privacy and creates a frictionless demo environment.
+- Functions: `uploadResume`, `sendMessage`, and `fetchATS` send HTTP POST requests to the backend with the `X-Session-ID` attached to the headers.
+- UI Structure: Renders the Sidebar (for PDF uploads) and the Main Area (Chat window or ATS Score Ring).
+
+
+
+Why session-based IDs instead of a User Database (SQL)?
+- Option A: PostgreSQL, passwords, JWT tokens. 
+- Why we stripped it out: It adds friction. For a tool focused entirely on AI interaction, making users register slows down testing. Stateless, session-based IDs allow instant, ephemeral sandbox testing.
+
+Why LangGraph instead of simple LangChain Chains or LlamaIndex?
+- Option A (LangChain LCEL): Good for simple flows, but terrible when you have multiple conditional modes (ATS vs Chat) requiring different prompts and contexts.
+- Option B (LlamaIndex): Excellent for querying documents, but restrictive when building custom conversational logic (like forcing ATS JSON outputs).
+- Why LangGraph: It treats the application like a state machine. It is the industry standard for building "Agentic" workflows where dynamic routing decisions are made during execution.

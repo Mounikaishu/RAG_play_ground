@@ -32,13 +32,13 @@ def retrieve_resume_node(state: PlacementState) -> PlacementState:
     """Retrieve the student's own resume context for personalization."""
     user_id = state.get("user_id", "")
     if not user_id:
-        return {**state, "context_resume": ""}
+        return {**state, "context_resume": "No resume uploaded yet."}
 
     results = search_kb(
         state["question"], "student_resumes", k=3,
         where={"roll_no": user_id}
     )
-    context = "\n\n".join([r["document"] for r in results]) if results else ""
+    context = "\n\n".join([r["document"] for r in results]) if results else "No resume uploaded yet."
     return {**state, "context_resume": context}
 
 
@@ -152,7 +152,7 @@ def mentor_node(state: PlacementState) -> PlacementState:
     """Career guidance and mentorship node."""
     history_text = "\n".join(state.get("history", [])[-10:])
 
-    prompt = f"""You are an AI Career Mentor at a university placement cell with deep knowledge of industry hiring.
+    prompt = f"""You are an AI Career Mentor at a university with deep knowledge of industry hiring.
 
 Student's Name: {state.get('student_name', 'Student')}
 Student's Department: {state.get('student_dept', 'Unknown')}

@@ -5,14 +5,12 @@ AI-Powered Placement & Career Guidance Platform — Main FastAPI Application.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers.auth_router import router as auth_router
 from routers.student_router import router as student_router
-from routers.placement_router import router as placement_router
 from knowledge_base.load_knowledge_base import load_knowledge_base
 
 app = FastAPI(
     title="AI Placement & Career Guidance Platform",
-    description="Multi-user AI-powered placement intelligence system with multi-document RAG",
+    description="Student-focused AI placement intelligence system with multi-document RAG",
     version="3.0.0",
 )
 
@@ -26,9 +24,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth_router)
 app.include_router(student_router)
-app.include_router(placement_router)
 
 
 @app.on_event("startup")
@@ -53,9 +49,7 @@ async def root():
         "knowledge_base": stats,
         "ingestion": registry,
         "endpoints": {
-            "auth": ["/auth/register", "/auth/login", "/auth/me", "/auth/change-password", "/auth/bulk-register"],
-            "student": ["/student/upload-resume", "/student/chat", "/student/ats-score", "/student/profile"],
-            "placement": ["/placement/search", "/placement/upload-kb", "/placement/students", "/placement/students/years", "/placement/analytics"],
+            "student": ["/student/upload-resume", "/student/chat", "/student/ats-score"],
         },
         "collections": [
             "institutional_kb",
@@ -70,9 +64,7 @@ async def root():
             "backend/data/placement_materials/",
         ],
         "notes": {
-            "default_password": "All new students get a default password on registration",
-            "year_storage": "Resumes are stored in year-specific collections based on passing_out_year",
-            "college_email": "Only @svecw.edu.in emails are accepted",
+            "session": "Stateless sessions using X-Session-ID",
             "ingestion": "Files in data/ folders are auto-ingested on startup with deduplication",
         },
         "docs": "/docs",

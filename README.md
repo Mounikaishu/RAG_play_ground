@@ -1,8 +1,8 @@
-# 🎓 PlaceAI — Placement & Career Guidance Platform
+# 🎓 PlaceAI — AI Placement & Career Guidance Platform
 
-PlaceAI is an intelligent platform designed to help students with their placement preparations and provide the placement cell with easy management tools. 
+PlaceAI is an intelligent, pure-RAG (Retrieval-Augmented Generation) platform designed to help students with their placement preparations. It acts as an AI Career Mentor that uses institutional knowledge (alumni resumes, interview experiences) and the student's own uploaded resume to provide highly personalized guidance.
 
-The project is structured to be straightforward and easy to understand. Below are the key components and how they work together, visualized through simple diagrams. You can use these points to easily explain the project to anyone.
+This project is built as a stateless, frictionless demo environment focusing entirely on AI capabilities, without the overhead of user authentication or administrative dashboards.
 
 ---
 
@@ -12,22 +12,22 @@ This diagram shows how the main technologies in the project connect to each othe
 
 ```mermaid
 flowchart TD
-    User([Student / Placement Cell]) -->|Interacts with| Frontend(React Frontend)
+    User([Student]) -->|Interacts with| Frontend(React Frontend)
     Frontend -->|Sends HTTP Requests| Backend{FastAPI Backend}
     
     Backend -->|Stores & Searches Resumes/KB| VectorDB[(ChromaDB Vector Store)]
     Backend -->|Sends Prompts| LLM[/Google Gemini AI/]
 ```
-* **React Frontend:** The user interface where students and admins click buttons and chat. It's built for simplicity and runs in the browser.
+* **React Frontend:** The user interface where students click buttons and chat. It's built for simplicity and runs in the browser.
 * **FastAPI Backend:** The engine of the application. It receives requests from the frontend, coordinates tasks, and sends data back securely.
 * **ChromaDB:** A special database that stores text as "vectors" (mathematical representations). This allows the system to perform *semantic searches* (finding text with similar meanings, not just exact keywords).
-* **Google Gemini AI:** The brain of the platform that generates the smart, human-like text responses for career guidance and resume analysis.
+* **Google Gemini AI / LangGraph:** The brain of the platform that generates the smart, human-like text responses for career guidance and resume analysis, orchestrated by a LangGraph state machine.
 
 ---
 
 ## 2. Document Ingestion (How Data is Saved)
 
-When a student uploads a resume or an admin uploads a placement guide, the system needs to process it so the AI can read and understand it later.
+When the backend starts, it automatically ingests institutional knowledge so the AI can read and understand it. When a student uploads a resume, the same process happens dynamically for their session.
 
 ```mermaid
 flowchart LR
@@ -52,81 +52,49 @@ flowchart TD
     
     Decide -->|Career Advice| Mentor[[Career Mentor Node]]
     Decide -->|Interview Prep| Interview[[Interview Coach Node]]
+    Decide -->|ATS Score| ATS[[ATS Analyzer Node]]
     
     Mentor --> Gen{Gemini AI Generates Answer}
     Interview --> Gen
+    ATS --> Gen
     
     Gen --> Reply([Show Answer to Student])
 ```
-* **Fetch Resume & Knowledge Base:** Before answering, the system securely grabs the student's resume and relevant placement materials from the database. This gives the AI the personal *context* it needs to give accurate advice.
+* **Fetch Resume & Knowledge Base:** Before answering, the system securely grabs the student's resume (tied to their temporary session) and relevant placement materials from the database. This gives the AI the personal *context* it needs to give accurate advice.
 * **What is the Goal?:** Depending on what the student wants, the system routes the question to a specialized "Node" (a specific instruction set for the AI).
-* **Nodes (Mentor, Interview):** Each node gives the AI a different persona and set of rules. For example, the Interview Coach Node is told to act like a strict technical interviewer.
+* **Nodes (Mentor, Interview, ATS):** Each node gives the AI a different persona and set of rules. For example, the Interview Coach Node is told to act like a strict technical interviewer.
 * **Generate Answer:** The AI combines the student's question, the retrieved context, and its specific persona instructions to generate a highly personalized response.
 
 ---
----
 
-## 4. Institutional Knowledge Management
-
-The placement cell can easily upload and manage institutional knowledge, such as alumni interview experiences, company guidelines, and placement policies.
-
-```mermaid
-flowchart TD
-    Upload[/Admin Uploads Alumni PDFs & Guides/] --> Send[Dashboard Sends to Backend]
-    Send --> Extract{Extract Text & Split into Chunks}
-    Extract --> Ingest[(Store in ChromaDB Vector Store)]
-    Ingest --> Success([Show Success Message])
-```
-* **Alumni Experiences & Guides:** Admins can drag and drop PDFs containing valuable past interview experiences or company-specific preparation guides.
-* **Automated Processing:** The system automatically extracts the text and breaks it into smaller chunks for efficient searching.
-* **Persistent Storage:** These chunks are saved into the ChromaDB vector store, instantly becoming part of the AI's knowledge base to help future students.
-
----
-
-## 5. Keyword-Based Resume Search
-
-The platform empowers the placement cell to quickly find specific student candidates based on industry keywords.
-
-```mermaid
-flowchart TD
-    Query[/Admin Enters Keywords e.g., 'React', 'Python'/] --> Search{Search ChromaDB Database}
-    Search --> Match[(Match Keywords with Student Resumes)]
-    Match --> Display([Display Ranked List of Students])
-```
-* **Targeted Search:** When a company requests students with specific skills (e.g., "Data Science" or "React"), the admin can simply search for these keywords.
-* **Vector Matching:** The system queries the ChromaDB vector store to find resumes that closely match the requested skills.
-* **Efficient Shortlisting:** The admin instantly receives a ranked list of relevant student profiles, saving hours of manual resume screening.
-
----
-
-## 6. Complete System Ingestion & Retrieval Flow
+## 4. Complete System Ingestion & Retrieval Flow
 
 To see the big picture, here is exactly where data enters (Ingestion) and exits (Retrieval) the vector database across the entire platform.
 
 ```mermaid
 flowchart LR
     %% Data Ingestion (Saving)
-    AdminUpload[/Admin Uploads Alumni PDFs & Guides/] --> Ingest[Process & Chunk]
+    Startup[Backend Startup Scripts] --> Ingest[Process & Chunk]
     StudentUpload[/Student Uploads Resume/] --> Ingest
     Ingest --> DB[(ChromaDB Vector Store)]
 
     %% Data Retrieval (Fetching)
     DB --> Retrieve[Semantic Search]
     Retrieve --> Chat([Student AI Chat Context])
-    Retrieve --> AdminSearch([Admin Keyword Resume Search])
+    Retrieve --> ATS([ATS Scoring Engine])
 ```
 
 ### 📥 Where Data Ingestion Happens (Saving to Database)
-* **Placement Cell Dashboard:** When admins upload institutional documents, alumni PDFs, and interview experiences.
-* **Student Dashboard:** When students upload their personal resumes to the platform.
+* **Backend Startup:** Institutional documents, alumni PDFs, and interview experiences are loaded from the `data/` folders on server start.
+* **Student Dashboard:** When students upload their personal resumes to the platform for their session.
 
 ### 📤 Where Data Retrieval Happens (Fetching from Database)
 * **Student AI Chat:** When a student asks a question, the system retrieves the alumni guides and the student's own resume to provide the AI with accurate context.
-* **Admin Resume Search:** When the placement cell admin searches for specific keywords to shortlist candidates for upcoming company drives.
+* **ATS Scoring:** When the student clicks the ATS button, the system pulls only their resume chunks to evaluate format and keywords.
 
 ---
 
-## 7. UML Diagrams
+## 5. UML Diagrams
 
 To provide a deeper technical understanding of the system's interactions and structure, here are the UML sequence and class diagrams.
 
@@ -143,7 +111,7 @@ sequenceDiagram
     participant LLM as Google Gemini AI
 
     Student->>Frontend: Types & sends chat message
-    Frontend->>Backend: POST /api/chat (Message payload)
+    Frontend->>Backend: POST /api/chat (Message payload + Session ID)
     
     activate Backend
     Backend->>DB: Query for semantic context
@@ -153,7 +121,7 @@ sequenceDiagram
     
     Backend->>LLM: Send Prompt (User Message + Context + Persona)
     activate LLM
-    LLM-->>Backend: Generated Answer (Streamed/Full)
+    LLM-->>Backend: Generated Answer
     deactivate LLM
     
     Backend-->>Frontend: HTTP Response (AI Answer)
@@ -170,14 +138,12 @@ This diagram illustrates the main logical components of the platform and their d
 classDiagram
     class ReactFrontend {
         +StudentDashboard
-        +PlacementCellDashboard
         +ChatInterface
         +UploadComponent
     }
     
     class FastAPIBase {
         +API Routers
-        +Authentication Middleware
         +Dependency Injection
     }
     
@@ -191,11 +157,13 @@ classDiagram
     class ChromaDB {
         +Collection: student_resumes
         +Collection: placement_materials
+        +Collection: alumni_resumes
     }
     
     class LLMService {
         +Gemini API Client
         +PromptTemplates
+        +LangGraph StateMachine
     }
 
     ReactFrontend --> FastAPIBase : REST API / JSON
@@ -206,13 +174,12 @@ classDiagram
 
 ### Use Case Diagram: User Interactions
 
-This diagram highlights the distinct actions available to the primary actors of the system (Student and Placement Cell Admin).
+This diagram highlights the distinct actions available to the primary actor of the system (the Student).
 
 ```mermaid
 flowchart LR
     %% Actors
     Student([Student])
-    Admin([Placement Cell Admin])
 
     %% System Boundary
     subgraph PlaceAI Platform
@@ -220,20 +187,12 @@ flowchart LR
         UC1(Upload Personal Resume)
         UC2(Chat with AI Career Mentor)
         UC3(Conduct Mock Interviews)
-        
-        UC4(Upload Alumni Experiences)
-        UC5(Upload Placement Guidelines)
-        UC6(Search Resumes by Skill/Keyword)
-        UC7(Shortlist Candidates)
+        UC4(Get ATS Resume Score)
     end
 
     %% Relationships
     Student --> UC1
     Student --> UC2
     Student --> UC3
-
-    Admin --> UC4
-    Admin --> UC5
-    Admin --> UC6
-    Admin --> UC7
+    Student --> UC4
 ```

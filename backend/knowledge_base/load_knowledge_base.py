@@ -24,55 +24,6 @@ from knowledge_base.ingestion_registry import clear_registry, get_registry_stats
 from knowledge_base.kb_seeder import seed_knowledge_base
 from knowledge_base.collections import get_collection_count
 
-# Admin credentials
-ADMIN_ROLL_NO = "placement_admin"
-ADMIN_PASSWORD = "admin@svecw2026"
-
-
-def ensure_admin_account():
-    """Create or fix the placement cell admin account on startup."""
-    from auth import hash_password
-
-    users_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "users.json")
-
-    # Load existing users
-    users = {}
-    if os.path.exists(users_file):
-        try:
-            with open(users_file, "r") as f:
-                users = json.load(f)
-        except Exception:
-            users = {}
-
-    # Check if admin needs creation or password fix
-    admin = users.get(ADMIN_ROLL_NO)
-    needs_update = (
-        admin is None
-        or admin.get("password_hash") == "placeholder_needs_rehash"
-        or admin.get("role") != "placement_cell"
-    )
-
-    if needs_update:
-        pw_hash = hash_password(ADMIN_PASSWORD)
-        users[ADMIN_ROLL_NO] = {
-            "name": "Placement Cell Admin",
-            "roll_no": ADMIN_ROLL_NO,
-            "department": "Placement Cell",
-            "password_hash": pw_hash,
-            "role": "placement_cell",
-            "skills": [],
-            "college_email": "placement@svecw.edu.in",
-            "passing_out_year": 0,
-            "year_of_study": 0,
-            "password_is_default": False,
-            "resume_uploaded": False,
-            "conversations": {},
-        }
-        with open(users_file, "w") as f:
-            json.dump(users, f, indent=2)
-        print("👤 Placement cell admin account created/updated.")
-    else:
-        print("👤 Placement cell admin account OK.")
 
 
 def load_knowledge_base():
@@ -91,8 +42,7 @@ def load_knowledge_base():
     print("=" * 70)
     start_time = time.time()
 
-    # Step 0: Ensure placement admin account exists
-    ensure_admin_account()
+
 
     # Step 1: Ensure directories
     ensure_data_directories()

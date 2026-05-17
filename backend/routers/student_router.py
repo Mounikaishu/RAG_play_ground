@@ -8,8 +8,6 @@ import shutil
 import os
 import traceback
 
-from auth import get_current_user_from_token
-from database import get_user, update_user_profile
 from pdf_loader import load_pdf
 from chunker import chunk_text_with_overlap
 from knowledge_base.collections import store_student_resume, search_kb
@@ -26,29 +24,16 @@ user_histories = {}
 # Build the placement graph once
 placement_graph = build_placement_graph()
 
-
-def _get_user_or_fail(authorization: Optional[str]):
-    """Extract and validate user from token."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization required.")
-    user_data = get_current_user_from_token(authorization)
-    if not user_data:
-        raise HTTPException(status_code=401, detail="Invalid or expired token.")
-    return user_data
-
-
 @router.post("/upload-resume")
 async def upload_resume(
     file: UploadFile = File(...),
-    authorization: Optional[str] = Header(None),
+    x_session_id: Optional[str] = Header(None),
 ):
-    """Upload or update student resume. Stored in year-specific collection."""
-    user_data = _get_user_or_fail(authorization)
-    roll_no = user_data["roll_no"]
-    user = get_user(roll_no)
-
-    # Get passing_out_year from user profile for year-based storage
-    passing_out_year = user.get("passing_out_year", 0) if user else 0
+    """Upload or update student resume for the current session."""
+    if not x_session_id:
+        raise HTTPException(status_code=401, detail="Session ID required.")
+    
+    roll_no = x_session_id
 
     file_path = f"temp_resume_{roll_no}.pdf"
     try:
@@ -58,24 +43,19 @@ async def upload_resume(
         raw_text = load_pdf(file_path)
         chunks = chunk_text_with_overlap(raw_text)
 
-        # Store resume embeddings in year-specific collection
+        # Store resume embeddings for this session
         store_student_resume(
             roll_no=roll_no,
-            name=user.get("name", ""),
-            department=user.get("department", ""),
-            skills=user.get("skills", []),
+            name="Student",
+            department="Unknown",
+            skills=[],
             chunks=chunks,
-            passing_out_year=passing_out_year,
+            passing_out_year=2026,
         )
 
-        # Update profile
-        update_user_profile(roll_no, {"resume_uploaded": True})
-
-        year_info = f" (stored in {passing_out_year} batch collection)" if passing_out_year else ""
         return {
-            "message": f"✅ Resume uploaded successfully ({len(chunks)} chunks stored){year_info}.",
+            "message": f"✅ Resume uploaded successfully ({len(chunks)} chunks stored) for this session.",
             "chunks": len(chunks),
-            "passing_out_year": passing_out_year,
         }
     except Exception as e:
         print(f"❌ Resume upload error: {e}")
@@ -93,17 +73,17 @@ async def chat(
     career_goal: str = Form(""),
     target_company: str = Form(""),
     target_role: str = Form(""),
-    authorization: Optional[str] = Header(None),
+    x_session_id: Optional[str] = Header(None),
 ):
     """Main chat endpoint — routes through LangGraph workflow."""
-    user_data = _get_user_or_fail(authorization)
-    roll_no = user_data["roll_no"]
+    if not x_session_id:
+        raise HTTPException(status_code=401, detail="Session ID required.")
+    
+    roll_no = x_session_id
 
-    from database import get_user
-    user = get_user(roll_no)
-    student_name = user.get("name", "Student") if user else "Student"
-    student_dept = user.get("department", "Unknown") if user else "Unknown"
-    student_skills = ", ".join(user.get("skills", [])) if user and user.get("skills") else "None specified"
+    student_name = "Student"
+    student_dept = "Unknown"
+    student_skills = "None specified"
 
     history = user_histories.get(roll_no, [])
 
@@ -137,10 +117,12 @@ async def chat(
 
 
 @router.post("/ats-score")
-async def ats_score(authorization: Optional[str] = Header(None)):
+async def ats_score(x_session_id: Optional[str] = Header(None)):
     """Get structured ATS score for the student's resume."""
-    user_data = _get_user_or_fail(authorization)
-    roll_no = user_data["roll_no"]
+    if not x_session_id:
+        raise HTTPException(status_code=401, detail="Session ID required.")
+    
+    roll_no = x_session_id
 
     # Get resume chunks
     results = search_kb("full resume skills experience education projects", "student_resumes", k=5, where={"roll_no": roll_no})
@@ -187,14 +169,3 @@ Return this exact JSON format:
             "keywords_found": [], "keywords_missing": [],
             "summary": raw[:200],
         }
-
-
-@router.get("/profile")
-async def get_profile(authorization: Optional[str] = Header(None)):
-    """Get student profile."""
-    user_data = _get_user_or_fail(authorization)
-    from database import get_user_profile
-    profile = get_user_profile(user_data["roll_no"])
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found.")
-    return {"user": profile}
