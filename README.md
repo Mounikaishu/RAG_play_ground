@@ -123,3 +123,117 @@ flowchart LR
 ### 📤 Where Data Retrieval Happens (Fetching from Database)
 * **Student AI Chat:** When a student asks a question, the system retrieves the alumni guides and the student's own resume to provide the AI with accurate context.
 * **Admin Resume Search:** When the placement cell admin searches for specific keywords to shortlist candidates for upcoming company drives.
+
+---
+
+## 7. UML Diagrams
+
+To provide a deeper technical understanding of the system's interactions and structure, here are the UML sequence and class diagrams.
+
+### Sequence Diagram: AI Chat Workflow
+
+This sequence diagram details the exact order of operations when a student interacts with the AI mentor.
+
+```mermaid
+sequenceDiagram
+    actor Student
+    participant Frontend as React Frontend
+    participant Backend as FastAPI Backend
+    participant DB as ChromaDB Vector Store
+    participant LLM as Google Gemini AI
+
+    Student->>Frontend: Types & sends chat message
+    Frontend->>Backend: POST /api/chat (Message payload)
+    
+    activate Backend
+    Backend->>DB: Query for semantic context
+    activate DB
+    DB-->>Backend: Return relevant resume/KB chunks
+    deactivate DB
+    
+    Backend->>LLM: Send Prompt (User Message + Context + Persona)
+    activate LLM
+    LLM-->>Backend: Generated Answer (Streamed/Full)
+    deactivate LLM
+    
+    Backend-->>Frontend: HTTP Response (AI Answer)
+    deactivate Backend
+    
+    Frontend-->>Student: Renders response in UI
+```
+
+### Class/Component Diagram: System Architecture
+
+This diagram illustrates the main logical components of the platform and their dependencies.
+
+```mermaid
+classDiagram
+    class ReactFrontend {
+        +StudentDashboard
+        +PlacementCellDashboard
+        +ChatInterface
+        +UploadComponent
+    }
+    
+    class FastAPIBase {
+        +API Routers
+        +Authentication Middleware
+        +Dependency Injection
+    }
+    
+    class RAGPipeline {
+        +DocumentLoader
+        +TextSplitter
+        +EmbeddingsGenerator
+        +VectorStoreRetriever
+    }
+    
+    class ChromaDB {
+        +Collection: student_resumes
+        +Collection: placement_materials
+    }
+    
+    class LLMService {
+        +Gemini API Client
+        +PromptTemplates
+    }
+
+    ReactFrontend --> FastAPIBase : REST API / JSON
+    FastAPIBase --> RAGPipeline : Orchestrates
+    RAGPipeline --> ChromaDB : Read/Write Vectors
+    RAGPipeline --> LLMService : Generate Responses
+```
+
+### Use Case Diagram: User Interactions
+
+This diagram highlights the distinct actions available to the primary actors of the system (Student and Placement Cell Admin).
+
+```mermaid
+flowchart LR
+    %% Actors
+    Student([Student])
+    Admin([Placement Cell Admin])
+
+    %% System Boundary
+    subgraph PlaceAI Platform
+        direction TB
+        UC1(Upload Personal Resume)
+        UC2(Chat with AI Career Mentor)
+        UC3(Conduct Mock Interviews)
+        
+        UC4(Upload Alumni Experiences)
+        UC5(Upload Placement Guidelines)
+        UC6(Search Resumes by Skill/Keyword)
+        UC7(Shortlist Candidates)
+    end
+
+    %% Relationships
+    Student --> UC1
+    Student --> UC2
+    Student --> UC3
+
+    Admin --> UC4
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+```
