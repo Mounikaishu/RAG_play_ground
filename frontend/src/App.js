@@ -4,7 +4,7 @@ import { FaPaperPlane, FaBars, FaTimes, FaCloudUploadAlt, FaMoon, FaSun, FaUserG
 import ReactMarkdown from "react-markdown";
 import "./App.css";
 
-const API = process.env.REACT_APP_API_URL || (window.location.hostname === "localhost" ? "http://localhost:8000" : "https://rag-play-ground.onrender.com");
+const API = process.env.REACT_APP_API_URL || (window.location.hostname === "localhost" ? "http://localhost:8000" : "https://rag-play-ground-95wc.onrender.com");
 
 /* ========== SCORE RING ========== */
 function ScoreRing({ score, size = 64, strokeWidth = 5 }) {

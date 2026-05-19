@@ -160,7 +160,7 @@ Return this exact JSON format:
   "summary": "<2 sentence assessment>"
 }}"""
 
-    raw = pipeline.generate(prompt, context)
+    raw = adapter.generate(prompt, context)
     try:
         cleaned = re.sub(r'```json\s*', '', raw)
         cleaned = re.sub(r'```\s*', '', cleaned).strip()

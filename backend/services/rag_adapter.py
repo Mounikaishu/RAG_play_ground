@@ -62,3 +62,8 @@ class ResumeRagAdapter:
         # Using a dummy pipeline to just access the insert method
         pipeline = ResumeRagPipeline(self.collection_name, roll_no=None)
         return pipeline.insert(text, metadata)
+
+    def generate(self, query: str, context: str, system_prompt: str = None) -> str:
+        """Helper to directly generate responses using context (bypassing retrieval)."""
+        pipeline = ResumeRagPipeline(self.collection_name, roll_no=None, system_prompt=system_prompt)
+        return pipeline.generate(query, context)
