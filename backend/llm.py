@@ -1,14 +1,18 @@
 import time
+import datetime
+import logging
 from google import genai
 from config import GEMINI_API_KEY
 
+logger = logging.getLogger("uvicorn.error")
+
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# Models to try in order (fallback chain)
 MODELS = [
     "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-3-flash-preview"
+    "gemini-1.5-flash-002",
+    "gemini-1.5-pro-002",
+    "gemini-1.0-pro",
 ]
 
 MAX_RETRIES = 2
@@ -36,20 +40,20 @@ def llm_call(prompt: str) -> str:
             except Exception as e:
                 last_error = e
                 error_str = str(e)
-                print(f"⚠️ {model} attempt {attempt + 1}/{MAX_RETRIES} failed: {error_str}")
+                logger.warning(f"⚠️ {model} attempt {attempt + 1}/{MAX_RETRIES} failed: {error_str}")
 
                 # Retry on 503 (overloaded) or 429 (rate limit)
                 if "503" in error_str or "429" in error_str or "UNAVAILABLE" in error_str:
                     wait_time = RETRY_DELAY * (2 ** attempt)  # exponential backoff
-                    print(f"   Retrying in {wait_time}s...")
+                    logger.info(f"   Retrying in {wait_time}s...")
                     time.sleep(wait_time)
                 else:
                     # Non-retryable error — skip to next model
-                    print(f"   Non-retryable error, trying next model...")
+                    logger.error(f"   Non-retryable error, trying next model...")
                     break
 
-        print(f"❌ All retries exhausted for {model}")
+        logger.error(f"❌ All retries exhausted for {model}")
 
     # All models and retries failed
-    print(f"❌ All models failed. Last error: {last_error}")
+    logger.critical(f"❌ All models failed. Last error: {last_error}")
     return "⚠️ AI model is busy right now. Please try again in a few seconds."

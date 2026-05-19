@@ -9,10 +9,7 @@ import os
 import traceback
 
 from pdf_loader import load_pdf
-from chunker import chunk_text_with_overlap
-from knowledge_base.collections import store_student_resume, search_kb
-from graph.workflow import build_placement_graph
-from llm import llm_call
+from services.rag_adapter import ResumeRagAdapter
 import json
 import re
 
@@ -20,9 +17,6 @@ router = APIRouter(prefix="/student", tags=["Student"])
 
 # Per-user conversation history
 user_histories = {}
-
-# Build the placement graph once
-placement_graph = build_placement_graph()
 
 @router.post("/upload-resume")
 async def upload_resume(
@@ -41,21 +35,16 @@ async def upload_resume(
             shutil.copyfileobj(file.file, buffer)
 
         raw_text = load_pdf(file_path)
-        chunks = chunk_text_with_overlap(raw_text)
 
-        # Store resume embeddings for this session
-        store_student_resume(
-            roll_no=roll_no,
-            name="Student",
-            department="Unknown",
-            skills=[],
-            chunks=chunks,
-            passing_out_year=2026,
-        )
+        # Use the adapter to insert the resume (it handles chunking/embedding/storing)
+        adapter = ResumeRagAdapter()
+        metadata = {"roll_no": roll_no, "type": "student_resume"}
+        result = adapter.insert_resume(raw_text, metadata=metadata)
+        chunks_inserted = result.get("chunks_inserted", 0)
 
         return {
-            "message": f"✅ Resume uploaded successfully ({len(chunks)} chunks stored) for this session.",
-            "chunks": len(chunks),
+            "message": f"✅ Resume uploaded successfully ({chunks_inserted} chunks stored) for this session.",
+            "chunks": chunks_inserted,
         }
     except Exception as e:
         print(f"❌ Resume upload error: {e}")
@@ -107,9 +96,27 @@ async def chat(
     }
 
     try:
-        result = placement_graph.invoke(state)
-        user_histories[roll_no] = result.get("history", [])[-20:]
-        return {"answer": result["answer"]}
+        # Use our RAG adapter!
+        adapter = ResumeRagAdapter()
+        
+        system_prompt = f"""You are an AI placement mentor. 
+The student's question is: {question}
+Their career goal is: {career_goal} 
+Target role: {target_role} at {target_company}
+Provide a tailored, actionable answer."""
+
+        answer = adapter.analyze_resume(
+            query=question,
+            roll_no=roll_no,
+            context_hint="placement prep and student resume",
+            system_prompt=system_prompt
+        )
+        
+        history.append({"role": "user", "content": question})
+        history.append({"role": "assistant", "content": answer})
+        user_histories[roll_no] = history[-20:]
+        
+        return {"answer": answer}
     except Exception as e:
         print(f"❌ Chat error: {e}")
         print(traceback.format_exc())
@@ -124,12 +131,17 @@ async def ats_score(x_session_id: Optional[str] = Header(None)):
     
     roll_no = x_session_id
 
-    # Get resume chunks
-    results = search_kb("full resume skills experience education projects", "student_resumes", k=5, where={"roll_no": roll_no})
+    # Get resume chunks using adapter's underlying pipeline retrieval
+    adapter = ResumeRagAdapter()
+    from services.rag_adapter import ResumeRagPipeline
+    # We just need to retrieve context
+    pipeline = ResumeRagPipeline(adapter.collection_name, roll_no=roll_no)
+    results = pipeline.retrieve("full resume skills experience education projects")
+    
     if not results:
         return {"error": "No resume uploaded. Please upload your resume first."}
 
-    context = "\n\n".join([r["document"] for r in results])
+    context = "\n\n".join([r["text"] for r in results])
 
     prompt = f"""Analyze this resume and provide an ATS score. Respond with ONLY valid JSON.
 
@@ -151,7 +163,7 @@ Return this exact JSON format:
   "summary": "<2 sentence assessment>"
 }}"""
 
-    raw = llm_call(prompt)
+    raw = pipeline.generate(prompt, context)
     try:
         cleaned = re.sub(r'```json\s*', '', raw)
         cleaned = re.sub(r'```\s*', '', cleaned).strip()

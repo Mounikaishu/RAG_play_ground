@@ -1,6 +1,10 @@
 """
 AI-Powered Placement & Career Guidance Platform — Main FastAPI Application.
 """
+import sys
+import os
+sys.path.append(r"c:\Users\MOUNIKA\RAG_pipeline")
+
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
