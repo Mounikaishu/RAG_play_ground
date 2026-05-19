@@ -31,10 +31,12 @@ app.add_middleware(
 app.include_router(student_router)
 
 
+import asyncio
+
 @app.on_event("startup")
 async def startup():
-    """Load institutional knowledge base — seeds data + ingests files from data folders."""
-    load_knowledge_base()
+    """Load institutional knowledge base in the background to prevent startup timeouts."""
+    asyncio.create_task(asyncio.to_thread(load_knowledge_base))
 
 
 @app.get("/")
