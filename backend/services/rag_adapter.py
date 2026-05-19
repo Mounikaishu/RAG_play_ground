@@ -36,11 +36,16 @@ class ResumeRagPipeline(DefaultRagPipeline):
 
 class ResumeRagAdapter:
     """
-    Adapter that isolates the resumeanalyser project from direct
+    Adapter that isolates the llm_playground project from direct
     RAG dependencies, satisfying the mentor's low coupling requirement.
     """
-    def __init__(self, collection_name: str = "resumeanalyser_db"):
+    def __init__(self, collection_name: str = "student_resumes"):
         self.collection_name = collection_name
+        
+    def get_resume_context(self, roll_no: str, query: str = "full resume skills experience education projects") -> list:
+        """Helper to retrieve resume chunks without exposing the pipeline."""
+        pipeline = ResumeRagPipeline(self.collection_name, roll_no=roll_no)
+        return pipeline.retrieve(query)
 
     def analyze_resume(self, query: str, roll_no: str, context_hint: str = "student resume and career guidance", system_prompt: str = None) -> str:
         """Runs the entire 6-stage RAG pipeline for the given student."""

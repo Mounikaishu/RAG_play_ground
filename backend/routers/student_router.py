@@ -131,12 +131,9 @@ async def ats_score(x_session_id: Optional[str] = Header(None)):
     
     roll_no = x_session_id
 
-    # Get resume chunks using adapter's underlying pipeline retrieval
+    # Get resume chunks cleanly through the adapter interface
     adapter = ResumeRagAdapter()
-    from services.rag_adapter import ResumeRagPipeline
-    # We just need to retrieve context
-    pipeline = ResumeRagPipeline(adapter.collection_name, roll_no=roll_no)
-    results = pipeline.retrieve("full resume skills experience education projects")
+    results = adapter.get_resume_context(roll_no)
     
     if not results:
         return {"error": "No resume uploaded. Please upload your resume first."}
