@@ -59,6 +59,17 @@ class ResumeRagAdapter:
 
     def insert_resume(self, text: str, metadata: dict = None):
         """Helper to insert resume chunks via the pipeline's insert stage."""
+        if metadata and "roll_no" in metadata:
+            from knowledge_base.collections import get_collection
+            try:
+                collection = get_collection(self.collection_name)
+                old = collection.get(where={"roll_no": metadata["roll_no"]}, include=["metadatas"])
+                if old and old.get("ids"):
+                    collection.delete(ids=old["ids"])
+                    print(f"🗑️ Deleted {len(old['ids'])} old resume chunks for session {metadata['roll_no']}")
+            except Exception as e:
+                print(f"⚠️ Error clearing old resume chunks: {e}")
+
         # Using a dummy pipeline to just access the insert method
         pipeline = ResumeRagPipeline(self.collection_name, roll_no=None)
         return pipeline.insert(text, metadata)

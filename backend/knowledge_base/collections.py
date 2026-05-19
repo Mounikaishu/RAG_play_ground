@@ -27,10 +27,46 @@ COLLECTIONS = {
 }
 
 
+class LangChainEmbeddingFunction:
+    def __init__(self, embeddings_model):
+        self.embeddings_model = embeddings_model
+
+    def __call__(self, input: list) -> list:
+        return self.embeddings_model.embed_documents(list(input))
+
+    def name(self) -> str:
+        return "langchain_bge"
+
+
 def get_collection(name: str):
-    """Get or create a ChromaDB collection."""
+    """Get or create a ChromaDB collection using the shared BGE embedding model."""
     coll_name = COLLECTIONS.get(name, name)
-    return client.get_or_create_collection(coll_name)
+    try:
+        from rag_core.db.chromadb_store import get_embeddings
+        emb_fn = LangChainEmbeddingFunction(get_embeddings())
+    except Exception as e:
+        print(f"⚠️ Failed to load shared embedding function: {e}")
+        emb_fn = None
+
+    try:
+        return client.get_or_create_collection(coll_name, embedding_function=emb_fn)
+    except ValueError as e:
+        if "Embedding function conflict" in str(e):
+            print(f"⚠️ Embedding function conflict detected for collection '{coll_name}'. Recreating collection...")
+            try:
+                client.delete_collection(coll_name)
+                # Clear registry to force full re-ingestion since collection was wiped
+                try:
+                    from knowledge_base.ingestion_registry import clear_registry
+                    clear_registry()
+                except Exception as reg_err:
+                    print(f"⚠️ Failed to clear registry: {reg_err}")
+                return client.get_or_create_collection(coll_name, embedding_function=emb_fn)
+            except Exception as delete_err:
+                print(f"❌ Failed to recreate collection '{coll_name}': {delete_err}")
+                raise e
+        else:
+            raise e
 
 
 def get_year_collection_name(passing_out_year: int) -> str:

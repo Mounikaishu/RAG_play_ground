@@ -56,8 +56,8 @@ def seed_knowledge_base():
     In production, the placement admin uploads all data through the dashboard.
     """
     import os
-    if os.getenv("SEED_KB", "").lower() != "true":
-        print("⏩ KB seeding skipped (set SEED_KB=true to enable demo data).")
+    if os.getenv("SEED_KB", "true").lower() != "true":
+        print("⏩ KB seeding skipped (set SEED_KB=false to disable demo data).")
         return
 
     kb_count = get_collection_count("institutional_kb")
