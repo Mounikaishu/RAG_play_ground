@@ -85,4 +85,3 @@ def retrieve_chunks(
 
     print(f"[retrieval] Retrieved {len(chunks)} chunks from '{collection_name}'")
     return chunks
-"""

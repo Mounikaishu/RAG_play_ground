@@ -110,4 +110,3 @@ def refine_chunks(chunks: list[dict], top_k: int = 5, max_distance: float = 1.2)
     texts = [c["text"] for c in chunks]
     print(f"[refine] Final context: {len(texts)} chunks selected for LLM")
     return texts
-"""
