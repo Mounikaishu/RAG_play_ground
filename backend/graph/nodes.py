@@ -38,7 +38,7 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
             docs = []
             for r in resume_results:
                 if isinstance(r, dict):
-                    doc_text = r.get("document") or r.get("page_content") or str(r)
+                    doc_text = r.get("text") or r.get("document") or r.get("page_content") or str(r)
                 elif hasattr(r, "page_content"):
                     doc_text = r.page_content
                 elif hasattr(r, "document"):

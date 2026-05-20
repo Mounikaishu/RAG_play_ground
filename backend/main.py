@@ -6,7 +6,7 @@ import os
 
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.student_router import router as student_router
@@ -40,8 +40,12 @@ async def startup():
 
 
 @app.get("/")
-async def root():
+@app.head("/")
+async def root(request: Request):
     """Health check / API info."""
+    if request.method == "HEAD":
+        return Response(status_code=200)
+
     from knowledge_base.kb_manager import get_kb_stats
     from knowledge_base.ingestion_registry import get_registry_stats
 

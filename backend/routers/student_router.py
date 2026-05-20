@@ -204,7 +204,19 @@ async def ats_score(x_session_id: Optional[str] = Header(None)):
     if not results:
         return {"error": "No resume uploaded. Please upload your resume first."}
 
-    context = "\n\n".join([r["text"] for r in results])
+    docs = []
+    for r in results:
+        if isinstance(r, dict):
+            doc_text = r.get("text") or r.get("document") or r.get("page_content") or str(r)
+        elif hasattr(r, "page_content"):
+            doc_text = r.page_content
+        elif hasattr(r, "document"):
+            doc_text = r.document
+        else:
+            doc_text = str(r)
+        docs.append(doc_text)
+
+    context = "\n\n".join(docs)
 
     prompt = f"""Analyze this resume and provide an ATS score. Respond with ONLY valid JSON.
 
