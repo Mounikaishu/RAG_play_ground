@@ -4,12 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Copy GEMINI_API_KEY to GOOGLE_API_KEY for downstream RAG pipeline/Google tools integration
-if GEMINI_API_KEY and not os.getenv("GOOGLE_API_KEY"):
-    os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+# Synchronize GEMINI_API_KEY and GOOGLE_API_KEY for downstream integration
+if GEMINI_API_KEY:
+    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+    if not os.getenv("GOOGLE_API_KEY"):
+        os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 
 # Only warn if both API keys are missing to prevent noisy harmless warning logs during presentation
 if not GEMINI_API_KEY and not GROQ_API_KEY:

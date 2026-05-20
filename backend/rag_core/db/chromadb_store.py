@@ -77,6 +77,15 @@ def get_embeddings():
             except Exception as e:
                 print(f"⚠️ Failed to load GoogleGenAIEmbeddings: {e}. Falling back to local BGE embeddings...")
         
+        # Render / cloud environment OOM prevention
+        is_render = os.getenv("RENDER") is not None or os.getenv("PORT") is not None
+        if is_render:
+            print("🚀 LOW MEMORY/Render environment detected without API keys.")
+            print("🚀 Bypassing local HuggingFace embeddings to prevent container OOM crash.")
+            print("🚀 Falling back directly to ultra-robust, zero-memory DeterministicDummyEmbeddings (768-dim)...")
+            _embeddings = DeterministicDummyEmbeddings(dimension=768)
+            return _embeddings
+
         # Local Fallback
         try:
             print("🖥️ Initializing local HuggingFace BGE Embeddings (heavy memory footprint)...")
