@@ -50,13 +50,14 @@ def clear_all_compare_collections():
 def store_chunks(chunks):
     """
     Stores resume chunks into Chroma vector DB (primary collection).
+    Uses upsert() so repeated uploads overwrite instead of crashing on duplicate IDs.
     """
 
     collection = client.get_or_create_collection(collection_name)
 
     for i, chunk in enumerate(chunks):
-
-        collection.add(
+        # BUG-2 FIX: use upsert() instead of add() to handle re-uploads
+        collection.upsert(
             documents=[chunk],
             ids=[str(i)]
         )
@@ -97,9 +98,15 @@ def retrieve_relevant_chunks(query, k=3):
 
     collection = client.get_or_create_collection(collection_name)
 
+    # BUG-1 FIX: guard against empty collection to prevent ChromaDB crash
+    count = collection.count()
+    if count == 0:
+        return []
+
+    n = min(k, count)
     results = collection.query(
         query_texts=[query],
-        n_results=k
+        n_results=n
     )
 
     return results["documents"][0]

@@ -53,6 +53,12 @@ export default function App() {
     setTheme(next); document.documentElement.setAttribute("data-theme", next);
   };
 
+  // BUG-5 FIX: apply the initial theme attribute on mount so CSS selectors
+  // like [data-theme="dark"] fire on first render without user toggling.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const headers = { headers: { "X-Session-ID": sessionId } };
 
   const uploadResume = async () => {
@@ -253,7 +259,9 @@ export default function App() {
           </div>
         )}
 
-        {(tab !== "ats" || chat.length > 0 || (atsData && atsData.error)) && (
+        {/* BUG-4 FIX: also show input bar when user has typed text (e.g. from
+            clicking an ATS suggestion card), even if chat is still empty */}
+        {(tab !== "ats" || chat.length > 0 || input.trim() || (atsData && atsData.error)) && (
           <div className="input-section">
             <div className="input-wrapper">
               <input value={input} onChange={e => setInput(e.target.value)}

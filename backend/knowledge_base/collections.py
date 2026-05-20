@@ -200,7 +200,10 @@ def store_student_resume(roll_no: str, name: str, department: str,
             pass
 
         for i, chunk in enumerate(chunks):
-            collection.add(
+            # BUG-3 FIX: use upsert() instead of add() so that if the
+            # pre-deletion step fails silently, re-uploads don't crash on
+            # duplicate IDs.
+            collection.upsert(
                 documents=[chunk],
                 ids=[f"resume_{roll_no}_{coll_name}_{i}"],
                 metadatas=[{

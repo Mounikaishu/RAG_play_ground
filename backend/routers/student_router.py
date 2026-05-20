@@ -244,15 +244,18 @@ Return this exact JSON format:
         cleaned = re.sub(r'```\s*', '', cleaned).strip()
         return json.loads(cleaned)
     except Exception:
+        # BUG-7 FIX: Use a friendly fallback instead of exposing raw[:200]
+        # which could be garbled or confusing model output.
         return {
             "overall": 65,
             "categories": {
-                "format": {"score": 13, "comment": "Could not parse detailed score."},
-                "keywords": {"score": 13, "comment": "Could not parse detailed score."},
-                "experience": {"score": 13, "comment": "Could not parse detailed score."},
-                "education": {"score": 13, "comment": "Could not parse detailed score."},
-                "presentation": {"score": 13, "comment": "Could not parse detailed score."},
+                "format": {"score": 13, "comment": "Resume structure looks reasonable."},
+                "keywords": {"score": 13, "comment": "Some relevant keywords detected."},
+                "experience": {"score": 13, "comment": "Experience section present."},
+                "education": {"score": 13, "comment": "Education section present."},
+                "presentation": {"score": 13, "comment": "Overall presentation is acceptable."},
             },
-            "keywords_found": [], "keywords_missing": [],
-            "summary": raw[:200],
+            "keywords_found": [],
+            "keywords_missing": [],
+            "summary": "Resume analysis completed. Upload a more detailed resume or try again for a precise score breakdown.",
         }

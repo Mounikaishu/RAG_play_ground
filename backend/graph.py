@@ -20,7 +20,11 @@ def coach_node(state: ChatState) -> ChatState:
     history_text = "\n".join(state["history"])
     mode = state.get("mode", "mentor")
 
-    if mode == "interview":
+    # BUG-6 FIX: was "interview", should be "interview_prep" to match the
+    # mode string used by the frontend and graph/workflow.py.
+    # NOTE: This root-level graph.py is legacy/unused — the live router imports
+    # from graph/workflow.py instead. Keep this in sync if ever re-enabled.
+    if mode == "interview_prep":
         role_instruction = """
 You are a technical interviewer conducting a mock interview based on the candidate's resume.
 

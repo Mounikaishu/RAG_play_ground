@@ -185,6 +185,7 @@ def llm_call(prompt: str) -> str:
     If Groq fails or is not configured, falls back to Gemini API.
     If both fail, falls back to a highly realistic local mock generator.
     """
+    global groq_client, gemini_client
     last_error = None
 
     # --- Phase 1: Try Groq API if client is available ---
@@ -214,7 +215,6 @@ def llm_call(prompt: str) -> str:
                     err_lower = error_str.lower()
                     if "401" in error_str or "unauthorized" in err_lower or "api key" in err_lower or "api_key" in err_lower or "forbidden" in err_lower or "403" in error_str:
                         logger.error(f"❌ Invalid/Expired Groq API key detected! Disabling Groq and falling back instantly...")
-                        global groq_client
                         groq_client = None
                         break  # Break inner attempt loop
 
@@ -255,7 +255,6 @@ def llm_call(prompt: str) -> str:
                     err_lower = error_str.lower()
                     if "401" in error_str or "unauthorized" in err_lower or "api key" in err_lower or "api_key" in err_lower or "forbidden" in err_lower or "403" in error_str:
                         logger.error(f"❌ Invalid/Expired Gemini API key detected! Disabling Gemini and falling back instantly...")
-                        global gemini_client
                         gemini_client = None
                         break  # Break inner attempt loop
 
