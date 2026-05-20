@@ -30,12 +30,10 @@ async def upload_resume(
     
     roll_no = x_session_id
 
-    file_path = f"temp_resume_{roll_no}.pdf"
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        raw_text = load_pdf(file_path)
+        # Read file bytes directly in-memory to support read-only file systems (Vercel, Render, etc.)
+        file_bytes = await file.read()
+        raw_text = load_pdf(file_bytes)
 
         # Extract metadata from raw text
         extracted = extract_resume_metadata(raw_text)
@@ -61,9 +59,6 @@ async def upload_resume(
         print(f"❌ Resume upload error: {e}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
 
 
 @router.post("/chat")

@@ -65,7 +65,10 @@ export default function App() {
       });
       setUploadMsg(r.data.message); setFile(null);
       if (fileRef.current) fileRef.current.value = "";
-    } catch { setUploadMsg("❌ Upload failed."); }
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message || "Unknown error";
+      setUploadMsg(`❌ Upload failed: ${detail}`);
+    }
     setUploading(false);
   };
 
