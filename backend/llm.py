@@ -184,7 +184,11 @@ I'm your AI Career Mentor. I've analyzed your profile and target goal of **{goal
    - **Core Projects:** Refine your projects. Make sure they are deployed and have clear README files on GitHub.
    - **Resume Polish:** Highlight your tech stack clearly. Put metrics (e.g., speedups, user numbers) on your project details.
 
-2. **Next Steps:**
+2. **Matching Alumni Profiles:**
+   - **Priya Sharma** (ML Engineer at Google, CSE '23)
+   - **Rahul Verma** (SDE-1 at Amazon, CSE '23)
+
+3. **Next Steps:**
    - Tell me about a specific topic you want to practice (e.g., mock interview questions, a custom 6-month study roadmap, or SQL preparation).
    - Feel free to ask about interview experiences at specific companies!
 """
