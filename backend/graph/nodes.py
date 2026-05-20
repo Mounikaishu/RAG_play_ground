@@ -12,6 +12,89 @@ from llm import llm_call
 
 
 # ──────────────────────────────────────────────────────────
+# Retrieval Nodes — Unified
+# ──────────────────────────────────────────────────────────
+
+def retrieve_all_node(state: PlacementState) -> PlacementState:
+    """Retrieve relevant chunks from all vector store collections at once."""
+    query = state["question"]
+    user_id = state.get("user_id", "")
+    career_goal = state.get("career_goal", "")
+    target_company = state.get("target_company", "")
+    target_role = state.get("target_role", "")
+
+    # 1. Institutional Knowledge Base
+    kb_query = f"{query} {career_goal}".strip()
+    kb_results = search_kb(kb_query, "institutional_kb", k=5)
+    context_kb = "\n\n".join([r["document"] for r in kb_results]) if kb_results else ""
+
+    # 2. Student's Own Resume
+    if user_id:
+        try:
+            from services.rag_adapter import ResumeRagAdapter
+            adapter = ResumeRagAdapter()
+            resume_results = adapter.get_resume_context(user_id)
+            
+            docs = []
+            for r in resume_results:
+                if isinstance(r, dict):
+                    doc_text = r.get("document") or r.get("page_content") or str(r)
+                elif hasattr(r, "page_content"):
+                    doc_text = r.page_content
+                elif hasattr(r, "document"):
+                    doc_text = r.document
+                else:
+                    doc_text = str(r)
+                docs.append(doc_text)
+                
+            context_resume = "\n\n".join(docs) if docs else "No resume uploaded yet."
+        except Exception as e:
+            print(f"⚠️ Failed to get resume context via adapter: {e}")
+            context_resume = "No resume uploaded yet."
+    else:
+        context_resume = "No resume uploaded yet."
+
+    # 3. Alumni Resumes (Guidance)
+    alumni_query = f"{query} {career_goal} {target_company}".strip()
+    
+    # Retrieve both target-company-specific alumni and broad career-relevant alumni for comprehensive comparison
+    target_alumni = []
+    if target_company:
+        target_alumni = search_alumni_resumes(alumni_query, k=3, company=target_company)
+    
+    broad_alumni = search_alumni_resumes(alumni_query, k=4)
+    
+    # Merge and deduplicate
+    seen_docs = set()
+    combined_alumni = []
+    for r in target_alumni + broad_alumni:
+        doc_text = r.get("document", "")
+        if doc_text and doc_text not in seen_docs:
+            seen_docs.add(doc_text)
+            combined_alumni.append(r)
+            
+    context_alumni = "\n\n".join([r["document"] for r in combined_alumni]) if combined_alumni else ""
+
+    # 4. Interview Experiences
+    interview_query = f"{query} {target_company} {target_role} interview experience".strip()
+    interview_results = search_kb(interview_query, "interview_experiences", k=8, where={"company": target_company} if target_company else None)
+    context_interviews = "\n\n".join([r["document"] for r in interview_results]) if interview_results else ""
+
+    # 5. Placement Materials
+    materials_results = search_placement_materials(query, k=3)
+    context_placement = "\n\n".join([r["document"] for r in materials_results]) if materials_results else ""
+
+    return {
+        **state,
+        "context_kb": context_kb,
+        "context_resume": context_resume,
+        "context_alumni": context_alumni,
+        "context_interviews": context_interviews,
+        "context_placement": context_placement,
+    }
+
+
+# ──────────────────────────────────────────────────────────
 # Retrieval Nodes — Existing
 # ──────────────────────────────────────────────────────────
 
@@ -181,13 +264,12 @@ CRITICAL INSTRUCTIONS:
 - You are speaking directly to {state.get('student_name', 'Student')}.
 - DO NOT confuse the student with any names or profiles found in the "Alumni Career Journeys". Those are OTHER people who have graduated.
 - If the "Student's Resume Profile" says "No resume uploaded yet", DO NOT assume the student has any skills or background from the alumni profiles.
-- Provide personalized, actionable career guidance based on the student's profile and institutional data
-- Reference specific alumni success stories and roadmaps from the knowledge base
-- Give structured advice with clear steps, timelines, and priorities
-- Suggest specific projects, skills, and resources
-- Be encouraging but realistic
-- Use markdown formatting with headers, bullet points, and bold text
-- If the student hasn't uploaded a resume, still provide valuable guidance from the KB"""
+- You MUST perform a comprehensive side-by-side comparison between the student's skills/projects/background and multiple retrieved alumni resumes (placed seniors) in the context.
+- Clearly compare the student's profile to each of these matching seniors by name (e.g., comparing their skills/projects to Priya Sharma, Rahul Verma, Sneha Reddy, etc.), highlighting specific skill gaps or project differences.
+- Reference specific alumni success stories and roadmaps, explicitly detailing the senior/alumni names (e.g., "Your senior Priya Sharma, placed at Google, did X...") and details about what they did to get placed.
+- Give structured advice with clear steps, timelines, and priorities based on these senior comparisons.
+- Suggest specific projects, skills, and resources matching the level of successfully placed seniors.
+- Use markdown formatting with headers, bullet points, and bold text."""
 
     answer = llm_call(prompt)
     return {**state, "answer": answer}
@@ -227,7 +309,7 @@ CRITICAL INSTRUCTIONS:
 - You are speaking directly to {state.get('student_name', 'Student')}.
 - DO NOT confuse the student with any names or profiles found in the Alumni Career Profiles or Interview Experiences.
 - If the Student's Resume says "No resume uploaded yet", DO NOT assume they have the skills of the alumni.
-- Provide company-specific interview preparation based on real senior experiences
+- Provide company-specific interview preparation based on real senior experiences, referring to seniors by name when recounting their questions or advice (e.g., "Your senior प्रिया Sharma faced this question in Round 2...")
 - List expected questions with preparation strategies
 - Give round-wise preparation guidance
 - Include important topics and concepts to revise
@@ -297,14 +379,14 @@ Student's Question:
 {state['question']}
 
 Provide:
-1. **Match Analysis:** How does {state.get('student_name', 'Student')} compare to placed alumni? (DO NOT confuse the student with the alumni).
+1. **Match Analysis:** How does {state.get('student_name', 'Student')} compare to placed alumni? (DO NOT confuse the student with the alumni). Explicitly name matching seniors/alumni.
 2. **Skill Gap Analysis:** What skills are missing compared to successful candidates?
-3. **Matching Profiles:** Which alumni profiles are most similar?
+3. **Matching Profiles:** Which alumni profiles are most similar? Cite their names and what they did/achieved.
 4. **Improvement Plan:** Specific steps to bridge the gap
 5. **Strength Assessment:** What the student already has going for them
 6. **Timeline:** Realistic timeline to become placement-ready
 
-Use markdown. Reference specific alumni profiles and their achievements."""
+Use markdown. Reference specific alumni profiles by their names and detail their achievements."""
 
     answer = llm_call(prompt)
     return {**state, "answer": answer}

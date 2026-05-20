@@ -2,13 +2,35 @@ import time
 import datetime
 import logging
 from google import genai
-from config import GEMINI_API_KEY
+from groq import Groq
+from config import GEMINI_API_KEY, GROQ_API_KEY
 
 logger = logging.getLogger("uvicorn.error")
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Initialize Gemini Client if key exists
+gemini_client = None
+if GEMINI_API_KEY:
+    try:
+        gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize Gemini client: {e}")
 
-MODELS = [
+# Initialize Groq Client if key exists
+groq_client = None
+if GROQ_API_KEY:
+    try:
+        groq_client = Groq(api_key=GROQ_API_KEY)
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize Groq client: {e}")
+
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "gemma2-9b-it",
+    "mixtral-8x7b-32768",
+]
+
+GEMINI_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.5-pro",
     "gemini-2.0-flash",
@@ -159,40 +181,76 @@ I'm your AI Career Mentor. I've analyzed your profile and target goal of **{goal
 
 def llm_call(prompt: str) -> str:
     """
-    Call Gemini API with retry logic and model fallback.
-    Retries up to MAX_RETRIES times per model, with exponential backoff.
-    Falls back to the next model if all retries fail.
-    If all external models fail, falls back to a highly realistic local mock generator.
+    Call Groq API with retry logic and model fallback.
+    If Groq fails or is not configured, falls back to Gemini API.
+    If both fail, falls back to a highly realistic local mock generator.
     """
     last_error = None
 
-    for model in MODELS:
-        for attempt in range(MAX_RETRIES):
-            try:
-                time.sleep(2)
-                response = client.models.generate_content(
-                    model=model,
-                    contents=prompt,
-                )
-                return response.text
+    # --- Phase 1: Try Groq API if client is available ---
+    if groq_client:
+        for model in GROQ_MODELS:
+            for attempt in range(MAX_RETRIES):
+                try:
+                    # Rate limiting protection
+                    time.sleep(1)
+                    chat_completion = groq_client.chat.completions.create(
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt,
+                            }
+                        ],
+                        model=model,
+                    )
+                    return chat_completion.choices[0].message.content
 
-            except Exception as e:
-                last_error = e
-                error_str = str(e)
-                logger.warning(f"⚠️ {model} attempt {attempt + 1}/{MAX_RETRIES} failed: {error_str}")
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e)
+                    logger.warning(f"⚠️ Groq {model} attempt {attempt + 1}/{MAX_RETRIES} failed: {error_str}")
 
-                # Retry on 503 (overloaded) or 429 (rate limit)
-                if "503" in error_str or "429" in error_str or "UNAVAILABLE" in error_str:
-                    wait_time = RETRY_DELAY * (2 ** attempt)  # exponential backoff
-                    logger.info(f"   Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-                else:
-                    # Non-retryable error — skip to next model
-                    logger.error(f"   Non-retryable error, trying next model...")
-                    break
+                    # Retry on rate limit (429) or overloaded/server issues (500/503/504)
+                    if "429" in error_str or "503" in error_str or "500" in error_str or "overloaded" in error_str.lower():
+                        wait_time = RETRY_DELAY * (2 ** attempt)  # exponential backoff
+                        logger.info(f"   Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        # Non-retryable error — skip to next model
+                        logger.error(f"   Non-retryable Groq error, trying next Groq model...")
+                        break
+            logger.error(f"❌ All Groq retries exhausted for {model}")
 
-        logger.error(f"❌ All retries exhausted for {model}")
+    # --- Phase 2: Fallback to Gemini API if available ---
+    if gemini_client:
+        logger.warning("⚠️ Falling back to Gemini API...")
+        for model in GEMINI_MODELS:
+            for attempt in range(MAX_RETRIES):
+                try:
+                    time.sleep(2)
+                    response = gemini_client.models.generate_content(
+                        model=model,
+                        contents=prompt,
+                    )
+                    return response.text
 
-    # All models and retries failed
-    logger.critical(f"❌ All models failed. Last error: {last_error}. Generating highly realistic mock response for demo safety.")
+                except Exception as e:
+                    last_error = e
+                    error_str = str(e)
+                    logger.warning(f"⚠️ Gemini {model} attempt {attempt + 1}/{MAX_RETRIES} failed: {error_str}")
+
+                    # Retry on 503 (overloaded) or 429 (rate limit)
+                    if "503" in error_str or "429" in error_str or "UNAVAILABLE" in error_str:
+                        wait_time = RETRY_DELAY * (2 ** attempt)  # exponential backoff
+                        logger.info(f"   Retrying in {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        # Non-retryable error — skip to next model
+                        logger.error(f"   Non-retryable Gemini error, trying next Gemini model...")
+                        break
+
+            logger.error(f"❌ All Gemini retries exhausted for {model}")
+
+    # --- Phase 3: Ultimate Fallback (Mock Generator) ---
+    logger.critical(f"❌ All LLM services failed. Last error: {last_error}. Generating highly realistic mock response for demo safety.")
     return generate_mock_response(prompt)

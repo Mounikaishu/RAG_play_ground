@@ -104,7 +104,20 @@ def search_kb(query: str, collection_name: str, k: int = 5, where: dict = None):
     if collection.count() == 0:
         return []
 
-    n = min(k, collection.count())
+    # Safe element count calculation for filtered queries to avoid ChromaDB query size errors
+    if where:
+        try:
+            matched = collection.get(where=where, include=[])
+            count = len(matched["ids"]) if matched and "ids" in matched else 0
+        except Exception:
+            count = collection.count()
+    else:
+        count = collection.count()
+
+    if count == 0:
+        return []
+
+    n = min(k, count)
     kwargs = {"query_texts": [query], "n_results": n, "include": ["documents", "metadatas", "distances"]}
 
     if where:
@@ -113,12 +126,7 @@ def search_kb(query: str, collection_name: str, k: int = 5, where: dict = None):
     try:
         results = collection.query(**kwargs)
     except Exception as e:
-        # ChromaDB might throw an error if n_results > matched documents
-        if "where" in kwargs:
-            # If we had a where filter, it likely means no documents matched this user.
-            return []
-        
-        # If no where filter, try reducing n_results to 1 just in case
+        # Fallback if query still fails
         kwargs["n_results"] = 1
         try:
             results = collection.query(**kwargs)

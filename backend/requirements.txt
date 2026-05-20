@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 google-genai
+groq
 langgraph
 pypdf
 python-dotenv
