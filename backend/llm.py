@@ -66,10 +66,10 @@ def generate_mock_response(prompt: str) -> str:
     if "expert ats" in prompt_lower or "ats score" in prompt_lower:
         # Try to parse student name from prompt
         import re
-        name_match = re.search(r"student's name:\s*([^\n]+)", prompt, re.IGNORECASE)
+        name_match = re.search(r"student's name:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         student_name = name_match.group(1).strip() if name_match else "Student"
         
-        dept_match = re.search(r"student's department:\s*([^\n]+)", prompt, re.IGNORECASE)
+        dept_match = re.search(r"student's department:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         dept = dept_match.group(1).strip() if dept_match else "Computer Science"
         
         return f"""### Resume ATS Analysis for **{student_name}**
@@ -101,9 +101,9 @@ We have completed a comprehensive ATS scan of your resume. Below is your detaile
 """
 
     # 2. Resume Match / Alumni Match Prompt Fallback
-    elif "ai resume matching system" in prompt_lower or "resume matching" in prompt_lower or "skill gap analysis" in prompt_lower:
+    elif "ai resume matching system" in prompt_lower or "resume matching" in prompt_lower or "skill gap analysis" in prompt_lower or "compare" in prompt_lower or "alumni" in prompt_lower:
         import re
-        name_match = re.search(r"student's name:\s*([^\n]+)", prompt, re.IGNORECASE)
+        name_match = re.search(r"student's name:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         student_name = name_match.group(1).strip() if name_match else "Student"
         
         return f"""### Alumni Match & Skills Gap Analysis for **{student_name}**
@@ -134,12 +134,12 @@ We matched your profile against our database of successfully placed alumni to fi
     # 3. Interview Coach Prompt Fallback
     elif "ai interview coach" in prompt_lower or "interview coach" in prompt_lower:
         import re
-        company_match = re.search(r"target company:\s*([^\n]+)", prompt, re.IGNORECASE)
+        company_match = re.search(r"target company:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         company = company_match.group(1).strip() if company_match else "target companies"
         if company == "Not specified":
             company = "Top-tier Tech Companies"
             
-        role_match = re.search(r"target role:\s*([^\n]+)", prompt, re.IGNORECASE)
+        role_match = re.search(r"target role:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         role = role_match.group(1).strip() if role_match else "Software Engineer"
         if role == "Not specified":
             role = "SDE"
@@ -167,10 +167,10 @@ Based on verified interview feedback from seniors who cleared interviews at **{c
     # 4. General Career Mentor Prompt Fallback (Default)
     else:
         import re
-        name_match = re.search(r"student's name:\s*([^\n]+)", prompt, re.IGNORECASE)
+        name_match = re.search(r"student's name:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         student_name = name_match.group(1).strip() if name_match else "Student"
         
-        goal_match = re.search(r"career goal:\s*([^\n]+)", prompt, re.IGNORECASE)
+        goal_match = re.search(r"career goal:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         goal = goal_match.group(1).strip() if goal_match else "Software Engineering"
         if goal == "Not specified" or goal == "Not specified":
             goal = "Software Engineering / Tech Roles"

@@ -76,6 +76,13 @@ async def chat(
     
     roll_no = x_session_id
 
+    # Ensure database is seeded on the fly if needed (handles empty collections instantly)
+    try:
+        from knowledge_base.kb_seeder import seed_knowledge_base
+        seed_knowledge_base()
+    except Exception as e:
+        print(f"⚠️ Failed to seed knowledge base on the fly: {e}")
+
     # Auto-extract company, role, and career goal if not supplied by form fields
     if not target_company:
         q_lower = question.lower()

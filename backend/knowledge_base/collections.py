@@ -27,22 +27,11 @@ COLLECTIONS = {
 }
 
 
-class LangChainEmbeddingFunction:
-    def __init__(self, embeddings_model):
-        self.embeddings_model = embeddings_model
-
-    def __call__(self, input: list) -> list:
-        return self.embeddings_model.embed_documents(list(input))
-
-    def name(self) -> str:
-        return "langchain_bge"
-
-
 def get_collection(name: str):
     """Get or create a ChromaDB collection using the shared BGE embedding model."""
     coll_name = COLLECTIONS.get(name, name)
     try:
-        from rag_core.db.chromadb_store import get_embeddings
+        from rag_core.db.chromadb_store import get_embeddings, LangChainEmbeddingFunction
         emb_fn = LangChainEmbeddingFunction(get_embeddings())
     except Exception as e:
         print(f"⚠️ Failed to load shared embedding function: {e}")

@@ -101,16 +101,31 @@ def get_embeddings():
     return _embeddings
 
 
+class LangChainEmbeddingFunction:
+    def __init__(self, embeddings_model):
+        self.embeddings_model = embeddings_model
+
+    def __call__(self, input: list) -> list:
+        return self.embeddings_model.embed_documents(list(input))
+
+    def name(self) -> str:
+        return "langchain_bge"
+
+
 def get_collection(collection_name: str):
     """
     Gets or creates a ChromaDB collection by name.
-    careerbot passes "careerbot_db"
-    resumeanalyser passes "resumeanalyser_db"
-    Same code, different collections. 
     """
     client = get_client()
+    try:
+        emb_fn = LangChainEmbeddingFunction(get_embeddings())
+    except Exception as e:
+        print(f"⚠️ Failed to load embedding function in chromadb_store: {e}")
+        emb_fn = None
+
     collection = client.get_or_create_collection(
         name=collection_name,
+        embedding_function=emb_fn,
         metadata={"hnsw:space": "cosine"}
     )
     return collection
