@@ -210,6 +210,14 @@ def llm_call(prompt: str) -> str:
                     error_str = str(e)
                     logger.warning(f"⚠️ Groq {model} attempt {attempt + 1}/{MAX_RETRIES} failed: {error_str}")
 
+                    # Check for invalid API key or authorization issues
+                    err_lower = error_str.lower()
+                    if "401" in error_str or "unauthorized" in err_lower or "api key" in err_lower or "api_key" in err_lower or "forbidden" in err_lower or "403" in error_str:
+                        logger.error(f"❌ Invalid/Expired Groq API key detected! Disabling Groq and falling back instantly...")
+                        global groq_client
+                        groq_client = None
+                        break  # Break inner attempt loop
+
                     # Retry on rate limit (429) or overloaded/server issues (500/503/504)
                     if "429" in error_str or "503" in error_str or "500" in error_str or "overloaded" in error_str.lower():
                         wait_time = RETRY_DELAY * (2 ** attempt)  # exponential backoff
@@ -219,6 +227,10 @@ def llm_call(prompt: str) -> str:
                         # Non-retryable error — skip to next model
                         logger.error(f"   Non-retryable Groq error, trying next Groq model...")
                         break
+            
+            # If the client was disabled, break the outer model loop
+            if not groq_client:
+                break
             logger.error(f"❌ All Groq retries exhausted for {model}")
 
     # --- Phase 2: Fallback to Gemini API if available ---
@@ -239,6 +251,14 @@ def llm_call(prompt: str) -> str:
                     error_str = str(e)
                     logger.warning(f"⚠️ Gemini {model} attempt {attempt + 1}/{MAX_RETRIES} failed: {error_str}")
 
+                    # Check for invalid API key or authorization issues
+                    err_lower = error_str.lower()
+                    if "401" in error_str or "unauthorized" in err_lower or "api key" in err_lower or "api_key" in err_lower or "forbidden" in err_lower or "403" in error_str:
+                        logger.error(f"❌ Invalid/Expired Gemini API key detected! Disabling Gemini and falling back instantly...")
+                        global gemini_client
+                        gemini_client = None
+                        break  # Break inner attempt loop
+
                     # Retry on 503 (overloaded) or 429 (rate limit)
                     if "503" in error_str or "429" in error_str or "UNAVAILABLE" in error_str:
                         wait_time = RETRY_DELAY * (2 ** attempt)  # exponential backoff
@@ -249,6 +269,9 @@ def llm_call(prompt: str) -> str:
                         logger.error(f"   Non-retryable Gemini error, trying next Gemini model...")
                         break
 
+            # If the client was disabled, break the outer model loop
+            if not gemini_client:
+                break
             logger.error(f"❌ All Gemini retries exhausted for {model}")
 
     # --- Phase 3: Ultimate Fallback (Mock Generator) ---
