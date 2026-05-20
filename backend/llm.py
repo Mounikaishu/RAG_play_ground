@@ -51,8 +51,19 @@ def generate_mock_response(prompt: str) -> str:
     """
     prompt_lower = prompt.lower()
     
+    # 0. Internal RAG steps (Query rewriting / Metadata extraction)
+    if "rewrite this user query" in prompt_lower:
+        import re
+        q_match = re.search(r"query:\s*'([^']+)'", prompt, re.IGNORECASE)
+        if q_match:
+            return q_match.group(1)
+        return "resume alignment career roadmap"
+        
+    if "extract structured metadata" in prompt_lower or "respond with only a valid json" in prompt_lower:
+        return '{"student_name": "Student", "company": "Not Specified", "role": "Not Specified", "department": "Not Specified", "batch": "N/A", "skills": [], "name": "Student", "cgpa": "N/A", "projects": [], "experience_summary": ""}'
+
     # 1. ATS Score Prompt Fallback
-    if "ats score" in prompt_lower or "applicant tracking system" in prompt_lower:
+    if "expert ats" in prompt_lower or "ats score" in prompt_lower:
         # Try to parse student name from prompt
         import re
         name_match = re.search(r"student's name:\s*([^\n]+)", prompt, re.IGNORECASE)
@@ -90,7 +101,7 @@ We have completed a comprehensive ATS scan of your resume. Below is your detaile
 """
 
     # 2. Resume Match / Alumni Match Prompt Fallback
-    elif "resume matching" in prompt_lower or "skill gap analysis" in prompt_lower:
+    elif "ai resume matching system" in prompt_lower or "resume matching" in prompt_lower or "skill gap analysis" in prompt_lower:
         import re
         name_match = re.search(r"student's name:\s*([^\n]+)", prompt, re.IGNORECASE)
         student_name = name_match.group(1).strip() if name_match else "Student"
@@ -121,7 +132,7 @@ We matched your profile against our database of successfully placed alumni to fi
 """
 
     # 3. Interview Coach Prompt Fallback
-    elif "interview coach" in prompt_lower or "interview experiences" in prompt_lower:
+    elif "ai interview coach" in prompt_lower or "interview coach" in prompt_lower:
         import re
         company_match = re.search(r"target company:\s*([^\n]+)", prompt, re.IGNORECASE)
         company = company_match.group(1).strip() if company_match else "target companies"

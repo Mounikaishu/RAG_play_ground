@@ -56,48 +56,90 @@ def seed_knowledge_base():
     In production, the placement admin uploads all data through the dashboard.
     """
     import os
+    import re
     if os.getenv("SEED_KB", "true").lower() != "true":
         print("⏩ KB seeding skipped (set SEED_KB=false to disable demo data).")
         return
 
     kb_count = get_collection_count("institutional_kb")
     interview_count = get_collection_count("interview_experiences")
+    alumni_resumes_count = get_collection_count("alumni_resumes")
 
-    if kb_count > 0 and interview_count > 0:
+    if kb_count > 0 and interview_count > 0 and alumni_resumes_count > 0:
         print("✅ Knowledge base already seeded. Skipping.")
         return
 
     print("🌱 Seeding institutional knowledge base...")
 
-    # Seed alumni profiles + roadmaps + resources into institutional_kb
-    kb_ids = []
-    kb_texts = []
-    kb_metas = []
+    # Seed alumni profiles + roadmaps + resources into institutional_kb if empty
+    if kb_count == 0:
+        kb_ids = []
+        kb_texts = []
+        kb_metas = []
 
-    for item in ALUMNI_PROFILES:
-        kb_ids.append(item["id"])
-        kb_texts.append(item["text"])
-        kb_metas.append(item["meta"])
+        for item in ALUMNI_PROFILES:
+            kb_ids.append(item["id"])
+            kb_texts.append(item["text"])
+            kb_metas.append(item["meta"])
 
-    for item in SKILL_ROADMAPS:
-        kb_ids.append(item["id"])
-        kb_texts.append(item["text"])
-        kb_metas.append(item["meta"])
+        for item in SKILL_ROADMAPS:
+            kb_ids.append(item["id"])
+            kb_texts.append(item["text"])
+            kb_metas.append(item["meta"])
 
-    for item in PLACEMENT_RESOURCES:
-        kb_ids.append(item["id"])
-        kb_texts.append(item["text"])
-        kb_metas.append(item["meta"])
+        for item in PLACEMENT_RESOURCES:
+            kb_ids.append(item["id"])
+            kb_texts.append(item["text"])
+            kb_metas.append(item["meta"])
 
-    store_kb_documents_batch("institutional_kb", kb_ids, kb_texts, kb_metas)
-    print(f"  ✅ Stored {len(kb_ids)} documents in institutional_kb")
+        store_kb_documents_batch("institutional_kb", kb_ids, kb_texts, kb_metas)
+        print(f"  ✅ Stored {len(kb_ids)} documents in institutional_kb")
 
-    # Seed interview experiences
-    ie_ids = [item["id"] for item in INTERVIEW_EXPERIENCES]
-    ie_texts = [item["text"] for item in INTERVIEW_EXPERIENCES]
-    ie_metas = [item["meta"] for item in INTERVIEW_EXPERIENCES]
+    # Seed interview experiences if empty
+    if interview_count == 0:
+        ie_ids = [item["id"] for item in INTERVIEW_EXPERIENCES]
+        ie_texts = [item["text"] for item in INTERVIEW_EXPERIENCES]
+        ie_metas = [item["meta"] for item in INTERVIEW_EXPERIENCES]
 
-    store_kb_documents_batch("interview_experiences", ie_ids, ie_texts, ie_metas)
-    print(f"  ✅ Stored {len(ie_ids)} documents in interview_experiences")
+        store_kb_documents_batch("interview_experiences", ie_ids, ie_texts, ie_metas)
+        print(f"  ✅ Stored {len(ie_ids)} documents in interview_experiences")
+
+    # Seed alumni resumes if empty (mapping metadata schema of ingestion pipeline)
+    if alumni_resumes_count == 0:
+        al_ids = []
+        al_texts = []
+        al_metas = []
+
+        for item in ALUMNI_PROFILES:
+            meta = item["meta"]
+            text = item["text"]
+            
+            # Extract student name
+            name_match = re.match(r"^([A-Za-z\s]+)\s+(?:graduated|transitioned)", text)
+            name = name_match.group(1).strip() if name_match else "Unknown Alumni"
+            
+            # Extract skills string
+            skills_match = re.search(r"skills in ([^.]+)\.", text)
+            skills = skills_match.group(1).strip() if skills_match else ""
+            # Clean up skills string (e.g. remove "and")
+            skills = re.sub(r"\band\b", "", skills).replace(", ,", ",").strip()
+            skills = ", ".join([s.strip() for s in skills.split(",") if s.strip()])
+            
+            al_ids.append(f"alumni_resume_seeded_{item['id']}")
+            al_texts.append(text)
+            al_metas.append({
+                "student_name": name,
+                "company": meta.get("company", "Not Specified"),
+                "role": meta.get("role", "Not Specified"),
+                "department": meta.get("department", "Not Specified"),
+                "batch": str(meta.get("year", "N/A")),
+                "skills": skills,
+                "source_file": "seeded_profile",
+                "chunk_index": 0,
+                "category": "alumni_resume",
+            })
+
+        store_kb_documents_batch("alumni_resumes", al_ids, al_texts, al_metas)
+        print(f"  ✅ Stored {len(al_ids)} documents in alumni_resumes (seeded collection)")
 
     print("🌱 Knowledge base seeding complete!")
