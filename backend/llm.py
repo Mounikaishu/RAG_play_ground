@@ -60,18 +60,235 @@ def generate_mock_response(prompt: str) -> str:
         return "resume alignment career roadmap"
         
     if "extract structured metadata" in prompt_lower or "respond with only a valid json" in prompt_lower:
-        return '{"student_name": "Student", "company": "Not Specified", "role": "Not Specified", "department": "Not Specified", "batch": "N/A", "skills": [], "name": "Student", "cgpa": "N/A", "projects": [], "experience_summary": ""}'
+        import re
+        import json
+        
+        name = "Student"
+        dept = "Computer Science"
+        skills = ["Python", "JavaScript", "SQL"]
+        cgpa = "N/A"
+        projects = []
+        
+        resume_part = prompt.split("Resume Text:")
+        if len(resume_part) > 1:
+            resume_content = resume_part[1].split("Return EXACTLY")[0].strip()
+            lines = [l.strip() for l in resume_content.split("\n") if l.strip()]
+            if lines:
+                # Use the first line as candidate name
+                name_cand = lines[0]
+                name_cand = re.sub(r'[^\w\s-]', '', name_cand).strip()
+                if name_cand and len(name_cand) < 50 and not any(kw in name_cand.lower() for kw in ["resume", "cv", "page", "text", "template"]):
+                    name = name_cand
+                
+            text_lower = resume_content.lower()
+            
+            # Simple heuristic to extract skills
+            detected_skills = []
+            possible_skills = ["python", "javascript", "react", "node", "sql", "java", "c++", "html", "css", "git", "docker", "aws", "kubernetes"]
+            for s in possible_skills:
+                if s in text_lower:
+                    detected_skills.append(s.title() if s != "c++" and s != "aws" else s.upper())
+            if detected_skills:
+                skills = detected_skills
+                
+            # Simple heuristic for CGPA
+            cgpa_match = re.search(r"(?:cgpa|gpa)[:\s]+([0-9\.]+)", text_lower)
+            if cgpa_match:
+                cgpa = cgpa_match.group(1)
+                
+            # Simple heuristic for department
+            if "computer science" in text_lower or "cse" in text_lower:
+                dept = "Computer Science"
+            elif "information technology" in text_lower or "it" in text_lower:
+                dept = "Information Technology"
+            elif "electronics" in text_lower or "ece" in text_lower:
+                dept = "Electronics & Communication"
+
+        res_dict = {
+            "name": name,
+            "department": dept,
+            "skills": skills,
+            "cgpa": cgpa,
+            "projects": projects or ["Personal Portfolio", "Task Manager"],
+            "experience_summary": f"Motivated {dept} student with skills in {', '.join(skills[:3])}."
+        }
+        return json.dumps(res_dict)
+
+    if "analyze this resume and provide an ats score" in prompt_lower:
+        import re
+        import json
+        
+        name = "Student"
+        skills = ["Python", "JavaScript", "SQL"]
+        dept = "Computer Science"
+        
+        resume_part = prompt.split("Resume Content:")
+        if len(resume_part) > 1:
+            resume_content = resume_part[1].split("Return this exact")[0].strip()
+            lines = [l.strip() for l in resume_content.split("\n") if l.strip()]
+            if lines:
+                name_cand = lines[0]
+                name_cand = re.sub(r'[^\w\s-]', '', name_cand).strip()
+                if name_cand and len(name_cand) < 50 and not any(kw in name_cand.lower() for kw in ["resume", "cv", "page", "text", "template"]):
+                    name = name_cand
+            
+            text_lower = resume_content.lower()
+            detected_skills = []
+            possible_skills = ["python", "javascript", "react", "node", "sql", "java", "c++", "html", "css", "git", "docker", "aws", "kubernetes"]
+            for s in possible_skills:
+                if s in text_lower:
+                    detected_skills.append(s.title() if s != "c++" and s != "aws" else s.upper())
+            if detected_skills:
+                skills = detected_skills
+                
+            if "computer science" in text_lower or "cse" in text_lower:
+                dept = "Computer Science"
+            elif "information technology" in text_lower or "it" in text_lower:
+                dept = "Information Technology"
+            elif "electronics" in text_lower or "ece" in text_lower:
+                dept = "Electronics & Communication"
+
+        return json.dumps({
+            "overall": 82,
+            "categories": {
+                "format": {"score": 17, "comment": "Clean and professional single-column layout."},
+                "keywords": {"score": 16, "comment": f"Good density of relevant industry keywords like {', '.join(skills[:3])}."},
+                "experience": {"score": 15, "comment": "Project experiences are well-detailed but could use more metrics."},
+                "education": {"score": 18, "comment": f"Academic qualifications are clearly listed for {dept}."},
+                "presentation": {"score": 16, "comment": "Consistent formatting, strong action verbs, and clear sections."}
+            },
+            "keywords_found": skills[:5],
+            "keywords_missing": ["Docker", "AWS", "CI/CD", "System Design"],
+            "summary": f"Strong resume for {name} showing solid foundations in software development. Minor optimizations around quantifying achievements will push this past 90."
+        })
+
+    import re
+    # Extract student's name, department, skills, cgpa, and question from prompt if available
+    name_match = re.search(r"student's\s+name:\s*([^\r\n]+)", prompt, re.IGNORECASE)
+    student_name = name_match.group(1).strip() if name_match else "Student"
+    
+    dept_match = re.search(r"student's\s+department:\s*([^\r\n]+)", prompt, re.IGNORECASE)
+    student_dept = dept_match.group(1).strip() if dept_match else "Computer Science"
+    
+    skills_match = re.search(r"student's\s+known\s+skills:\s*([^\r\n]+)", prompt, re.IGNORECASE)
+    student_skills = skills_match.group(1).strip() if skills_match else "None specified"
+    
+    cgpa_match = re.search(r"cgpa:\s*([^\r\n]+)", prompt, re.IGNORECASE)
+    if not cgpa_match:
+        cgpa_match = re.search(r"gpa:\s*([^\r\n]+)", prompt, re.IGNORECASE)
+    student_cgpa = cgpa_match.group(1).strip() if cgpa_match else "N/A"
+    
+    # Try to find the user's question
+    question = ""
+    question_match = re.search(r"(?:student's\s+question|student\s+question|user\s+question|student\s+question):?\s*\n?([^\r\n]+)", prompt, re.IGNORECASE)
+    if question_match:
+        question = question_match.group(1).strip()
+    
+    question_lower = question.lower()
+    
+    # Check if the question is asking for their name
+    if any(kw in question_lower for kw in ["my name", "what is my name", "who am i", "tell my name", "know my name"]):
+        if student_name == "Student":
+            return "Since you haven't uploaded a resume yet, I don't know your name! You can upload your resume in the sidebar to get personalized guidance."
+        return f"Hello! Your name is **{student_name}**."
+        
+    # Check if the question is asking for their department
+    if any(kw in question_lower for kw in ["my department", "what is my department", "which department", "my branch"]):
+        if student_dept == "Unknown" or student_dept == "Not Specified":
+            return "I couldn't find your department. Please upload your resume in the sidebar so I can analyze your profile!"
+        return f"According to your profile, you are in the **{student_dept}** department."
+        
+    # Check if the question is asking for their skills
+    if any(kw in question_lower for kw in ["my skills", "what are my skills", "what skills do i have"]):
+        if student_skills == "None specified" or not student_skills:
+            return "I don't have access to your skills yet. Upload your resume so I can extract and analyze them!"
+        return f"Based on your resume, your known skills are: **{student_skills}**."
+        
+    # Check if the question is asking for their CGPA/GPA
+    if any(kw in question_lower for kw in ["my cgpa", "my gpa", "what is my cgpa", "what is my gpa"]):
+        if student_cgpa and student_cgpa != "N/A":
+            return f"According to your resume, your CGPA/GPA is **{student_cgpa}**."
+        else:
+            return "I couldn't find a CGPA or GPA listed in your resume. Try uploading a resume with your GPA details."
+            
+    # Check if it's a simple greeting
+    if question_lower in ["hello", "hi", "hey", "greetings", "good morning", "good afternoon", "good evening"]:
+        if student_name == "Student":
+            return "Hello! I'm your AI placement assistant. How can I help you today? (Tip: Upload your resume in the sidebar for personalized career guidance!)"
+        return f"Hello **{student_name}**! I'm your AI placement assistant. How can I help you today?"
+
+    # 2. Local RAG search inside the retrieved context from prompt!
+    # We combine all context sections
+    context_text = ""
+    # Look for context blocks in the prompt
+    for section_header in ["Resume Details:", "Student's Resume Profile:", "Student's Resume:", "Alumni Career Journeys (Real Alumni Resumes):", "Alumni Career Profiles:", "Interview Experiences from Seniors:", "Related Knowledge Base:", "Institutional Knowledge", "Placement Resources"]:
+        parts = prompt.split(section_header)
+        if len(parts) > 1:
+            # Get the content up to the next double newline or header
+            content = parts[1].split("\n\n\n")[0].strip()
+            # Stop if we hit another header
+            for next_hdr in ["Student Question:", "Student's Question:", "Conversation History:", "Formatting Guidelines:", "CRITICAL INSTRUCTIONS:"]:
+                content = content.split(next_hdr)[0].strip()
+            context_text += f"\n{content}"
+
+    # Extract keywords
+    stopwords = {"what", "is", "are", "the", "a", "an", "of", "in", "on", "for", "to", "with", "about", "how", "why", "where", "who", "whom", "whose", "which", "can", "you", "tell", "me", "show", "details", "profile", "resume", "cv", "info", "information", "extracted", "explain", "describe", "find", "get", "give", "list", "summarize"}
+    words = [re.sub(r'[^\w\s]', '', w) for w in question_lower.split()]
+    keywords = [w for w in words if w and w not in stopwords and len(w) > 2]
+
+    if keywords and context_text.strip():
+        # Split context into paragraphs/bullet points/lines
+        raw_blocks = []
+        for block in context_text.split("\n"):
+            block_strip = block.strip()
+            if block_strip:
+                raw_blocks.append(block_strip)
+        for block in context_text.split("\n\n"):
+            block_strip = block.strip()
+            if block_strip and block_strip not in raw_blocks:
+                raw_blocks.append(block_strip)
+
+        matching = []
+        for block in raw_blocks:
+            block_lower = block.lower()
+            score = 0
+            for kw in keywords:
+                if kw in block_lower:
+                    score += 1
+            if score > 0:
+                matching.append((score, block))
+
+        if matching:
+            # Sort by score desc, then by length desc
+            matching.sort(key=lambda x: (x[0], len(x[1])), reverse=True)
+            # Deduplicate
+            seen = set()
+            unique_blocks = []
+            for score, block in matching:
+                norm = re.sub(r'\s+', ' ', block).strip()
+                if norm not in seen and len(norm) > 10:
+                    seen.add(norm)
+                    unique_blocks.append(block)
+
+            if unique_blocks:
+                # Format bullet list
+                bullets = []
+                for b in unique_blocks[:5]:
+                    # Clean up bullet markers if duplicate
+                    cleaned_b = re.sub(r'^[\s\-\*•\d\.]+', '', b).strip()
+                    bullets.append(f"- {cleaned_b}")
+                
+                content_str = "\n".join(bullets)
+                return f"""### Retrieved Placement Database Record
+
+Based on the information retrieved from your repository:
+
+{content_str}
+
+*(This response was compiled directly from the retrieved context chunks in the database)*"""
 
     # 1. ATS Score Prompt Fallback
-    if "expert ats" in prompt_lower or "ats score" in prompt_lower:
-        # Try to parse student name from prompt
-        import re
-        name_match = re.search(r"student's name:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
-        student_name = name_match.group(1).strip() if name_match else "Student"
-        
-        dept_match = re.search(r"student's department:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
-        dept = dept_match.group(1).strip() if dept_match else "Computer Science"
-        
+    if "expert ats" in prompt_lower or "ats analyzer" in prompt_lower:
         return f"""### Resume ATS Analysis for **{student_name}**
 
 We have completed a comprehensive ATS scan of your resume. Below is your detailed breakdown:
@@ -82,7 +299,7 @@ We have completed a comprehensive ATS scan of your resume. Below is your detaile
    - **Format & Structure (18/20):** High readability, uses standard sections (Education, Skills, Projects, Experience).
    - **Keywords & Skills (15/20):** Core technical keywords are present, but could be enriched for specific target roles.
    - **Experience & Impact (14/20):** Good project details. Suggest quantifying achievements further (e.g., use metrics like %, ms, $).
-   - **Education & Certifications (16/20):** Clear academic history with department (**{dept}**).
+   - **Education & Certifications (16/20):** Clear academic history with department (**{student_dept}**).
    - **Overall Presentation (15/20):** Clean layout, consistent font size and bullet points.
 
 3. **Keywords Found:**
@@ -101,11 +318,7 @@ We have completed a comprehensive ATS scan of your resume. Below is your detaile
 """
 
     # 2. Resume Match / Alumni Match Prompt Fallback
-    elif "ai resume matching system" in prompt_lower or "resume matching" in prompt_lower or "skill gap analysis" in prompt_lower or "compare" in prompt_lower or "alumni" in prompt_lower:
-        import re
-        name_match = re.search(r"student's name:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
-        student_name = name_match.group(1).strip() if name_match else "Student"
-        
+    elif "ai resume matching system" in prompt_lower or "resume matching" in prompt_lower:
         return f"""### Alumni Match & Skills Gap Analysis for **{student_name}**
 
 We matched your profile against our database of successfully placed alumni to find relevant career paths and skill alignments:
@@ -133,7 +346,6 @@ We matched your profile against our database of successfully placed alumni to fi
 
     # 3. Interview Coach Prompt Fallback
     elif "ai interview coach" in prompt_lower or "interview coach" in prompt_lower:
-        import re
         company_match = re.search(r"target company:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         company = company_match.group(1).strip() if company_match else "target companies"
         if company == "Not specified":
@@ -166,13 +378,9 @@ Based on verified interview feedback from seniors who cleared interviews at **{c
 
     # 4. General Career Mentor Prompt Fallback (Default)
     else:
-        import re
-        name_match = re.search(r"student's name:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
-        student_name = name_match.group(1).strip() if name_match else "Student"
-        
         goal_match = re.search(r"career goal:[ \t]*([^\r\n]+)", prompt, re.IGNORECASE)
         goal = goal_match.group(1).strip() if goal_match else "Software Engineering"
-        if goal == "Not specified" or goal == "Not specified":
+        if goal == "Not specified":
             goal = "Software Engineering / Tech Roles"
 
         return f"""Hello **{student_name}**! 

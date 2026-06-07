@@ -4,6 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+# Explicitly load .env from backend directory if it exists
+backend_env_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(backend_env_path):
+    load_dotenv(backend_env_path, override=True)
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 

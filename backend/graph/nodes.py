@@ -1,8 +1,3 @@
-"""
-LangGraph Nodes for the Placement Platform.
-Each node handles a specific retrieval or generation step.
-"""
-
 from graph.state import PlacementState
 from knowledge_base.collections import (
     search_kb, search_student_resumes,
@@ -10,79 +5,117 @@ from knowledge_base.collections import (
 )
 from llm import llm_call
 
+# Import 6-stage RAG pipeline functions from the shared RAG_pipeline (rag_core)
+from rag_core.stages.rewrite import rewrite_query
+from rag_core.stages.rerank import rerank_chunks
+from rag_core.stages.refine import refine_chunks
+
 
 # ──────────────────────────────────────────────────────────
 # Retrieval Nodes — Unified
 # ──────────────────────────────────────────────────────────
 
 def retrieve_all_node(state: PlacementState) -> PlacementState:
-    """Retrieve relevant chunks from all vector store collections at once."""
+    """Retrieve relevant chunks from all vector store collections at once, using the 6-stage RAG pipeline."""
     query = state["question"]
     user_id = state.get("user_id", "")
     career_goal = state.get("career_goal", "")
     target_company = state.get("target_company", "")
     target_role = state.get("target_role", "")
 
-    # 1. Institutional Knowledge Base
-    kb_query = f"{query} {career_goal}".strip()
-    kb_results = search_kb(kb_query, "institutional_kb", k=5)
-    context_kb = "\n\n".join([r["document"] for r in kb_results]) if kb_results else ""
+    # Helper function to convert search results to RAG chunks format
+    def to_rag_chunks(results: list) -> list[dict]:
+        chunks = []
+        for r in results:
+            if isinstance(r, dict):
+                text = r.get("document") or r.get("text") or r.get("page_content") or str(r)
+                dist = r.get("distance", 0.5)
+                meta = r.get("metadata", {})
+            elif hasattr(r, "page_content"):
+                text = r.page_content
+                dist = getattr(r, "distance", 0.5)
+                meta = getattr(r, "metadata", {})
+            else:
+                text = str(r)
+                dist = 0.5
+                meta = {}
+            chunks.append({
+                "text": text,
+                "distance": dist,
+                "metadata": meta
+            })
+        return chunks
 
-    # 2. Student's Own Resume
+    # Stage 1: Query Rewriting
+    context_hint = f"career goal is {career_goal}, target company is {target_company}, target role is {target_role}"
+    rewritten_query = rewrite_query(query, context_hint=context_hint)
+    print(f"\n[RAG DEBUG] Original Query: {query}")
+    print(f"[RAG DEBUG] Rewritten Query: {rewritten_query}")
+
+    # Stage 2: Retrieve from all collections
+    # 2.1 Institutional Knowledge Base
+    kb_results = search_kb(rewritten_query, "institutional_kb", k=8)
+    kb_chunks = to_rag_chunks(kb_results)
+
+    # 2.2 Student's Own Resume
+    resume_chunks = []
     if user_id:
         try:
             from services.rag_adapter import ResumeRagAdapter
             adapter = ResumeRagAdapter()
-            resume_results = adapter.get_resume_context(user_id)
-            
-            docs = []
-            for r in resume_results:
-                if isinstance(r, dict):
-                    doc_text = r.get("text") or r.get("document") or r.get("page_content") or str(r)
-                elif hasattr(r, "page_content"):
-                    doc_text = r.page_content
-                elif hasattr(r, "document"):
-                    doc_text = r.document
-                else:
-                    doc_text = str(r)
-                docs.append(doc_text)
-                
-            context_resume = "\n\n".join(docs) if docs else "No resume uploaded yet."
+            resume_results = adapter.get_resume_context(user_id, query=rewritten_query)
+            resume_chunks = to_rag_chunks(resume_results)
         except Exception as e:
             print(f"⚠️ Failed to get resume context via adapter: {e}")
-            context_resume = "No resume uploaded yet."
-    else:
-        context_resume = "No resume uploaded yet."
 
-    # 3. Alumni Resumes (Guidance)
-    alumni_query = f"{query} {career_goal} {target_company}".strip()
-    
-    # Retrieve both target-company-specific alumni and broad career-relevant alumni for comprehensive comparison
-    target_alumni = []
-    if target_company:
-        target_alumni = search_alumni_resumes(alumni_query, k=3, company=target_company)
-    
-    broad_alumni = search_alumni_resumes(alumni_query, k=4)
-    
-    # Merge and deduplicate
-    seen_docs = set()
-    combined_alumni = []
-    for r in target_alumni + broad_alumni:
-        doc_text = r.get("document", "")
-        if doc_text and doc_text not in seen_docs:
-            seen_docs.add(doc_text)
-            combined_alumni.append(r)
-            
-    context_alumni = "\n\n".join([r["document"] for r in combined_alumni]) if combined_alumni else ""
+    # 2.3 Alumni Resumes (Guidance)
+    alumni_results = search_alumni_resumes(rewritten_query, k=8, company=target_company if target_company else None)
+    alumni_chunks = to_rag_chunks(alumni_results)
 
-    # 4. Interview Experiences
-    interview_query = f"{query} {target_company} {target_role} interview experience".strip()
-    interview_results = search_kb(interview_query, "interview_experiences", k=8, where={"company": target_company} if target_company else None)
-    context_interviews = "\n\n".join([r["document"] for r in interview_results]) if interview_results else ""
+    # 2.4 Interview Experiences
+    interview_results = search_kb(rewritten_query, "interview_experiences", k=8, where={"company": target_company} if target_company else None)
+    interview_chunks = to_rag_chunks(interview_results)
 
-    # 5. Placement Materials
-    materials_results = search_placement_materials(query, k=3)
-    context_placement = "\n\n".join([r["document"] for r in materials_results]) if materials_results else ""
+    # 2.5 Placement Materials
+    materials_results = search_placement_materials(rewritten_query, k=8)
+    materials_chunks = to_rag_chunks(materials_results)
+
+    print(f"[RAG DEBUG] Retrieved Chunks count: KB={len(kb_chunks)}, Resume={len(resume_chunks)}, Alumni={len(alumni_chunks)}, Interviews={len(interview_chunks)}, Placement={len(materials_chunks)}")
+
+    # Stage 3: Reranking
+    reranked_kb = rerank_chunks(rewritten_query, kb_chunks)
+    reranked_resume = rerank_chunks(rewritten_query, resume_chunks)
+    reranked_alumni = rerank_chunks(rewritten_query, alumni_chunks)
+    reranked_interviews = rerank_chunks(rewritten_query, interview_chunks)
+    reranked_placement = rerank_chunks(rewritten_query, materials_chunks)
+
+    print(f"[RAG DEBUG] Reranked Chunks count: KB={len(reranked_kb)}, Resume={len(reranked_resume)}, Alumni={len(reranked_alumni)}, Interviews={len(reranked_interviews)}, Placement={len(reranked_placement)}")
+
+    # Stage 4: Refinement
+    refined_kb = refine_chunks(reranked_kb, top_k=4)
+    refined_resume = refine_chunks(reranked_resume, top_k=4)
+    refined_alumni = refine_chunks(reranked_alumni, top_k=4)
+    refined_interviews = refine_chunks(reranked_interviews, top_k=4)
+    refined_placement = refine_chunks(reranked_placement, top_k=4)
+
+    print(f"[RAG DEBUG] Refined Context: KB chunks={len(refined_kb)}, Resume chunks={len(refined_resume)}, Alumni chunks={len(refined_alumni)}, Interviews chunks={len(refined_interviews)}, Placement chunks={len(refined_placement)}")
+
+    context_kb = "\n\n".join(refined_kb) if refined_kb else ""
+    context_resume = "\n\n".join(refined_resume) if refined_resume else "No resume uploaded yet."
+    context_alumni = "\n\n".join(refined_alumni) if refined_alumni else ""
+    context_interviews = "\n\n".join(refined_interviews) if refined_interviews else ""
+    context_placement = "\n\n".join(refined_placement) if refined_placement else ""
+
+    # Keep track of source files/docs
+    source_docs = []
+    for chunk_list in [reranked_kb, reranked_resume, reranked_alumni, reranked_interviews, reranked_placement]:
+        for c in chunk_list[:3]:
+            meta = c.get("metadata", {})
+            src = meta.get("source_file") or meta.get("roll_no") or meta.get("student_name")
+            if src and src not in source_docs:
+                source_docs.append(src)
+
+    print(f"[RAG DEBUG] Source documents used: {source_docs}")
 
     return {
         **state,
@@ -91,6 +124,8 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
         "context_alumni": context_alumni,
         "context_interviews": context_interviews,
         "context_placement": context_placement,
+        "rewritten_query": rewritten_query,
+        "source_documents": source_docs,
     }
 
 
@@ -271,6 +306,11 @@ CRITICAL INSTRUCTIONS:
 - Suggest specific projects, skills, and resources matching the level of successfully placed seniors.
 - Use markdown formatting with headers, bullet points, and bold text."""
 
+    print(f"\n[RAG DEBUG] --- Generation Node: mentor_node ---")
+    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
+    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
+    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
+
     answer = llm_call(prompt)
     return {**state, "answer": answer}
 
@@ -317,6 +357,11 @@ CRITICAL INSTRUCTIONS:
 - Reference actual interview experiences from the knowledge base
 - Use markdown with clear sections and formatting"""
 
+    print(f"\n[RAG DEBUG] --- Generation Node: interview_prep_node ---")
+    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
+    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
+    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
+
     answer = llm_call(prompt)
     return {**state, "answer": answer}
 
@@ -355,6 +400,11 @@ Analyze the resume and provide:
 
 Use markdown formatting. Be specific with examples from the actual resume."""
 
+    print(f"\n[RAG DEBUG] --- Generation Node: ats_node ---")
+    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
+    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
+    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
+
     answer = llm_call(prompt)
     return {**state, "answer": answer}
 
@@ -387,6 +437,11 @@ Provide:
 6. **Timeline:** Realistic timeline to become placement-ready
 
 Use markdown. Reference specific alumni profiles by their names and detail their achievements."""
+
+    print(f"\n[RAG DEBUG] --- Generation Node: resume_match_node ---")
+    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
+    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
+    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
 
     answer = llm_call(prompt)
     return {**state, "answer": answer}
