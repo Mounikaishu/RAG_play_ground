@@ -131,3 +131,23 @@ def rebuild_knowledge_base():
 
     # Re-run the loader
     load_knowledge_base()
+
+
+def reset_database():
+    """
+    Wipe all ChromaDB collections and the ingestion registry.
+    Use before a full PDF-only re-seed.
+    """
+    import shutil
+    from knowledge_base.collections import CHROMA_DB_PATH
+
+    print("\n🗑️  RESETTING KNOWLEDGE BASE DATABASE...")
+
+    # Close any open ChromaDB handles by deleting the directory
+    if os.path.exists(CHROMA_DB_PATH):
+        shutil.rmtree(CHROMA_DB_PATH)
+        print(f"   Removed {CHROMA_DB_PATH}")
+
+    os.makedirs(CHROMA_DB_PATH, exist_ok=True)
+    clear_registry()
+    print("   Database and registry cleared.")
