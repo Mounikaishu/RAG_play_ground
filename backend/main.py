@@ -59,7 +59,7 @@ async def root(request: Request):
         "knowledge_base": stats,
         "ingestion": registry,
         "endpoints": {
-            "student": ["/student/upload-resume", "/student/chat", "/student/ats-score"],
+            "student": ["/student/upload-resume", "/student/chat"],
         },
         "collections": [
             "institutional_kb",

@@ -11,7 +11,7 @@ class PlacementState(TypedDict):
     student_dept: str
     student_skills: str
     question: str
-    mode: str  # "mentor", "interview_prep", "ats", "resume_match"
+    mode: str  # "mentor", "interview_prep", "resume_match"
     context_kb: str
     context_resume: str
     context_interviews: str

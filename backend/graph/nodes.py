@@ -366,52 +366,9 @@ CRITICAL INSTRUCTIONS:
     return {**state, "answer": answer}
 
 
-def ats_node(state: PlacementState) -> PlacementState:
-    """ATS scoring and resume analysis node."""
-    prompt = f"""You are an expert ATS (Applicant Tracking System) analyzer and resume reviewer.
-
-Student's Name: {state.get('student_name', 'Student')}
-Student's Department: {state.get('student_dept', 'Unknown')}
-Student's Known Skills: {state.get('student_skills', 'None specified')}
-Student's Resume Content:
-{state.get('context_resume', 'No resume uploaded.')}
-
-ATS Best Practices from Knowledge Base:
-{state.get('context_kb', '')}
-
-Placement Resources & Guides:
-{state.get('context_placement', '')}
-
-Student's Question:
-{state['question']}
-
-Analyze the resume and provide:
-1. **ATS Score: X/100**
-2. **Category Breakdown:**
-   - Format & Structure (0-20): Is it ATS-parseable?
-   - Keywords & Skills (0-20): Are relevant tech keywords present?
-   - Experience & Impact (0-20): Are achievements quantified?
-   - Education & Certifications (0-20): Are they well-presented?
-   - Overall Presentation (0-20): Grammar, consistency, clarity
-3. **Keywords Found:** List detected technical keywords
-4. **Missing Keywords:** Suggest important keywords to add
-5. **Specific Improvements:** Actionable before/after examples
-6. **Overall Assessment:** 2-3 sentence summary
-
-Use markdown formatting. Be specific with examples from the actual resume."""
-
-    print(f"\n[RAG DEBUG] --- Generation Node: ats_node ---")
-    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
-    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
-    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
-
-    answer = llm_call(prompt)
-    return {**state, "answer": answer}
-
-
 def resume_match_node(state: PlacementState) -> PlacementState:
-    """Resume matching against successful alumni profiles."""
-    prompt = f"""You are an AI Resume Matching system comparing a student against successfully placed alumni.
+    """Interview match — compare student resume against successfully placed alumni."""
+    prompt = f"""You are an AI Interview Matching system comparing a student against successfully placed alumni.
 
 Student's Name: {state.get('student_name', 'Student')}
 Student's Department: {state.get('student_dept', 'Unknown')}

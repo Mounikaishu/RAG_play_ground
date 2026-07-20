@@ -1,5 +1,5 @@
 """
-Student Router — Resume upload, chat, ATS score, resume matching.
+Student Router — Resume upload and chat for the three core PlaceAI modes.
 """
 
 from fastapi import APIRouter, UploadFile, File, Form, Header, HTTPException
@@ -11,8 +11,6 @@ import traceback
 from pdf_loader import load_pdf
 from services.rag_adapter import ResumeRagAdapter
 from metadata_extractor import extract_resume_metadata
-import json
-import re
 
 router = APIRouter(prefix="/student", tags=["Student"])
 
@@ -42,17 +40,18 @@ async def upload_resume(
         # Use the adapter to insert the resume (it handles chunking/embedding/storing)
         adapter = ResumeRagAdapter()
         metadata = {
-            "roll_no": roll_no, 
+            "roll_no": roll_no,
             "type": "student_resume",
+            "temporary": True,
             "student_name": extracted.get("name", "Student"),
             "department": extracted.get("department", "Unknown"),
-            "skills": skills_str
+            "skills": skills_str,
         }
         result = adapter.insert_resume(raw_text, metadata=metadata)
         chunks_inserted = result.get("chunks_inserted", 0)
 
         return {
-            "message": f"✅ Resume uploaded successfully ({chunks_inserted} chunks stored) for this session.",
+            "message": f"✅ Resume uploaded for this session only ({chunks_inserted} chunks). Refresh the page to start fresh.",
             "chunks": chunks_inserted,
         }
     except Exception as e:
@@ -64,7 +63,7 @@ async def upload_resume(
 @router.post("/chat")
 async def chat(
     question: str = Form(...),
-    mode: str = Form("mentor"),
+    mode: str = Form("mentor"),  # mentor | interview_prep | resume_match
     career_goal: str = Form(""),
     target_company: str = Form(""),
     target_role: str = Form(""),
@@ -194,75 +193,3 @@ async def chat(
         print(f"❌ Chat error: {e}")
         print(traceback.format_exc())
         return {"answer": f"⚠️ Something went wrong: {str(e)}"}
-
-
-@router.post("/ats-score")
-async def ats_score(x_session_id: Optional[str] = Header(None)):
-    """Get structured ATS score for the student's resume."""
-    if not x_session_id:
-        raise HTTPException(status_code=401, detail="Session ID required.")
-    
-    roll_no = x_session_id
-
-    # Get resume chunks cleanly through the adapter interface
-    adapter = ResumeRagAdapter()
-    results = adapter.get_resume_context(roll_no)
-    
-    if not results:
-        return {"error": "No resume uploaded. Please upload your resume first."}
-
-    docs = []
-    for r in results:
-        if isinstance(r, dict):
-            doc_text = r.get("text") or r.get("document") or r.get("page_content") or str(r)
-        elif hasattr(r, "page_content"):
-            doc_text = r.page_content
-        elif hasattr(r, "document"):
-            doc_text = r.document
-        else:
-            doc_text = str(r)
-        docs.append(doc_text)
-
-    context = "\n\n".join(docs)
-
-    prompt = f"""Analyze this resume and provide an ATS score. Respond with ONLY valid JSON.
-
-Resume Content:
-{context}
-
-Return this exact JSON format:
-{{
-  "overall": <0-100>,
-  "categories": {{
-    "format": {{"score": <0-20>, "comment": "<one sentence>"}},
-    "keywords": {{"score": <0-20>, "comment": "<one sentence>"}},
-    "experience": {{"score": <0-20>, "comment": "<one sentence>"}},
-    "education": {{"score": <0-20>, "comment": "<one sentence>"}},
-    "presentation": {{"score": <0-20>, "comment": "<one sentence>"}}
-  }},
-  "keywords_found": ["keyword1", "keyword2"],
-  "keywords_missing": ["keyword1", "keyword2"],
-  "summary": "<2 sentence assessment>"
-}}"""
-
-    raw = adapter.generate(prompt, context)
-    try:
-        cleaned = re.sub(r'```json\s*', '', raw)
-        cleaned = re.sub(r'```\s*', '', cleaned).strip()
-        return json.loads(cleaned)
-    except Exception:
-        # BUG-7 FIX: Use a friendly fallback instead of exposing raw[:200]
-        # which could be garbled or confusing model output.
-        return {
-            "overall": 65,
-            "categories": {
-                "format": {"score": 13, "comment": "Resume structure looks reasonable."},
-                "keywords": {"score": 13, "comment": "Some relevant keywords detected."},
-                "experience": {"score": 13, "comment": "Experience section present."},
-                "education": {"score": 13, "comment": "Education section present."},
-                "presentation": {"score": 13, "comment": "Overall presentation is acceptable."},
-            },
-            "keywords_found": [],
-            "keywords_missing": [],
-            "summary": "Resume analysis completed. Upload a more detailed resume or try again for a precise score breakdown.",
-        }

@@ -2,7 +2,7 @@
 LangGraph Workflow Builder with unified multi-source retrieval.
 
 Workflow pipeline:
-retrieve_all (KB + Resume + Alumni + Interviews + Materials) ──(conditional by mode)──> mentor/interview_prep/ats/resume_match ──> memory ──> END
+retrieve_all (KB + Resume + Alumni + Interviews + Materials) ──(conditional by mode)──> mentor/interview_prep/resume_match ──> memory ──> END
 """
 
 from langgraph.graph import StateGraph, END
@@ -11,7 +11,6 @@ from graph.nodes import (
     retrieve_all_node,
     mentor_node,
     interview_prep_node,
-    ats_node,
     resume_match_node,
     memory_node,
 )
@@ -22,8 +21,6 @@ def route_by_mode(state: PlacementState) -> str:
     mode = state.get("mode", "mentor")
     if mode == "interview_prep":
         return "interview_prep"
-    elif mode == "ats":
-        return "ats"
     elif mode == "resume_match":
         return "resume_match"
     else:
@@ -40,7 +37,6 @@ def build_placement_graph():
     # ── Generation Nodes ──
     graph.add_node("mentor", mentor_node)
     graph.add_node("interview_prep", interview_prep_node)
-    graph.add_node("ats", ats_node)
     graph.add_node("resume_match", resume_match_node)
     graph.add_node("memory", memory_node)
 
@@ -54,7 +50,6 @@ def build_placement_graph():
         {
             "mentor": "mentor",
             "interview_prep": "interview_prep",
-            "ats": "ats",
             "resume_match": "resume_match",
         },
     )
@@ -62,7 +57,6 @@ def build_placement_graph():
     # ── All generation nodes → memory → END ──
     graph.add_edge("mentor", "memory")
     graph.add_edge("interview_prep", "memory")
-    graph.add_edge("ats", "memory")
     graph.add_edge("resume_match", "memory")
     graph.add_edge("memory", END)
 
