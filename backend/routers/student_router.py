@@ -8,7 +8,7 @@ import shutil
 import os
 import traceback
 
-from pdf_loader import load_pdf
+from pdf_loader import load_pdf, validate_pdf_bytes, PdfValidationError
 from services.rag_adapter import ResumeRagAdapter
 from metadata_extractor import extract_resume_metadata
 
@@ -22,15 +22,19 @@ async def upload_resume(
     file: UploadFile = File(...),
     x_session_id: Optional[str] = Header(None),
 ):
-    """Upload or update student resume for the current session."""
+    """Upload or update student resume (PDF only) for the current session."""
     if not x_session_id:
         raise HTTPException(status_code=401, detail="Session ID required.")
-    
+
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+
     roll_no = x_session_id
 
     try:
-        # Read file bytes directly in-memory to support read-only file systems (Vercel, Render, etc.)
         file_bytes = await file.read()
+        validate_pdf_bytes(file_bytes, filename=file.filename or "upload")
         raw_text = load_pdf(file_bytes)
 
         # Extract metadata from raw text
@@ -74,13 +78,6 @@ async def chat(
         raise HTTPException(status_code=401, detail="Session ID required.")
     
     roll_no = x_session_id
-
-    # Ensure database is seeded on the fly if needed (handles empty collections instantly)
-    try:
-        from knowledge_base.kb_seeder import seed_knowledge_base
-        seed_knowledge_base()
-    except Exception as e:
-        print(f"⚠️ Failed to seed knowledge base on the fly: {e}")
 
     # Auto-extract company, role, and career goal if not supplied by form fields
     if not target_company:

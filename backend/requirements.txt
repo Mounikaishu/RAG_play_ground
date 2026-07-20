@@ -4,6 +4,9 @@ google-genai
 groq
 langgraph
 pypdf
+pymupdf
+pytesseract
+Pillow
 python-dotenv
 chromadb
 python-multipart

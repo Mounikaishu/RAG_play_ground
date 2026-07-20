@@ -152,8 +152,8 @@ export default function App() {
           ))}
         </div>
         <div className="sidebar-upload" style={{ flex: 1, overflow: "auto", padding: "var(--space-4)" }}>
-          <div className="sidebar-section-title">Upload Resume</div>
-          <p className="upload-hint">Stored only for this session. Refresh the page to clear it.</p>
+          <div className="sidebar-section-title">Upload Resume (PDF only)</div>
+          <p className="upload-hint">PDF only. Text and images inside the PDF are scanned. Stored only for this session.</p>
           <div className="upload-zone">
             <input type="file" accept=".pdf" ref={fileRef} onChange={(e) => setFile(e.target.files[0])} />
             <span className="upload-zone-icon"><FaCloudUploadAlt /></span>

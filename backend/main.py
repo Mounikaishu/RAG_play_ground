@@ -75,7 +75,7 @@ async def root(request: Request):
         ],
         "notes": {
             "session": "Stateless sessions using X-Session-ID",
-            "ingestion": "Files in data/ folders are auto-ingested on startup with deduplication",
+            "ingestion": "PDF files only in data/ folders; non-PDF files are removed on startup",
         },
         "docs": "/docs",
     }

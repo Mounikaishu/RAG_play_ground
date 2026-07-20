@@ -36,14 +36,10 @@ from pdf_loader import load_pdf
 
 
 def _read_file(file_info: FileInfo) -> str:
-    """Read text content from a PDF or TXT file."""
-    if file_info.extension == ".pdf":
-        return load_pdf(file_info.path)
-    elif file_info.extension == ".txt":
-        with open(file_info.path, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    else:
-        raise ValueError(f"Unsupported file type: {file_info.extension}")
+    """Read text content from a PDF file (including OCR for embedded images)."""
+    if file_info.extension != ".pdf":
+        raise ValueError(f"Unsupported file type: {file_info.extension}. Only PDF is accepted.")
+    return load_pdf(file_info.path)
 
 
 def _generate_doc_id(folder_type: str, filename: str, chunk_index: int) -> str:

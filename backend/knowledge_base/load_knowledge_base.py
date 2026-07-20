@@ -3,8 +3,8 @@ Knowledge Base Loader — Startup orchestrator for the ingestion pipeline.
 
 Called on FastAPI startup to:
 1. Ensure data directories exist
-2. Seed synthetic baseline data (if collections are empty)
-3. Scan all data folders for PDF/TXT files
+2. Remove non-PDF files from data folders
+3. Scan all data folders for PDF files only
 4. Process new files through the appropriate pipelines
 5. Report ingestion summary
 
@@ -21,7 +21,6 @@ import os
 from knowledge_base.file_scanner import scan_all_folders, ensure_data_directories
 from knowledge_base.ingestion_pipeline import process_files
 from knowledge_base.ingestion_registry import clear_registry, get_registry_stats
-from knowledge_base.kb_seeder import seed_knowledge_base
 from knowledge_base.collections import get_collection_count
 
 
@@ -32,10 +31,9 @@ def load_knowledge_base():
 
     Flow:
     1. Create data directories if missing
-    2. Seed synthetic baseline data (alumni profiles, interviews, roadmaps)
-    3. Scan data folders for files
-    4. Process new files (skip already-ingested)
-    5. Print summary
+    2. Purge non-PDF files and scan data folders for PDFs only
+    3. Process new PDF files (skip already-ingested)
+    4. Print summary
     """
     print("\n" + "=" * 70)
     print("🏛️  INSTITUTIONAL KNOWLEDGE BASE — LOADING")
@@ -47,14 +45,11 @@ def load_knowledge_base():
     # Step 1: Ensure directories
     ensure_data_directories()
 
-    # Step 2: Seed synthetic baseline (opt-in — only when SEED_KB=true env var is set)
-    seed_knowledge_base()
-
-    # Step 3: Scan all folders
+    # Step 2: Scan all folders (PDF only; non-PDF files are deleted)
     print("\n📂 Scanning data folders for new files...")
     folder_files = scan_all_folders()
 
-    # Step 4: Process each folder
+    # Step 3: Process each folder
     total_processed = 0
     total_skipped = 0
     total_errors = 0
@@ -78,7 +73,7 @@ def load_knowledge_base():
         if result["errors"] > 0:
             print(f"   ❌ {result['errors']} files failed")
 
-    # Step 5: Summary
+    # Step 4: Summary
     elapsed = time.time() - start_time
     print("\n" + "-" * 70)
     print("📊 INGESTION SUMMARY")

@@ -57,8 +57,8 @@ def seed_knowledge_base():
     """
     import os
     import re
-    if os.getenv("SEED_KB", "true").lower() != "true":
-        print("⏩ KB seeding skipped (set SEED_KB=false to disable demo data).")
+    if os.getenv("SEED_KB", "false").lower() != "true":
+        print("⏩ KB seeding disabled. Add PDF files to backend/data/ folders instead.")
         return
 
     kb_count = get_collection_count("institutional_kb")
