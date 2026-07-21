@@ -52,12 +52,18 @@ def generate_mock_response(prompt: str) -> str:
     prompt_lower = prompt.lower()
     
     # 0. Internal RAG steps (Query rewriting / Metadata extraction)
-    if "rewrite this user query" in prompt_lower:
+    if "rewrite this user query" in prompt_lower or "search query expander" in prompt_lower:
         import re
+        # Phase 3 format: "Original Query: ..."
+        q_match = re.search(r"Original Query:\s*(.+?)(?:\n|$)", prompt, re.IGNORECASE)
+        if q_match:
+            return q_match.group(1).strip()
+        # Legacy format: "query: '...'"
         q_match = re.search(r"query:\s*'([^']+)'", prompt, re.IGNORECASE)
         if q_match:
             return q_match.group(1)
         return "resume alignment career roadmap"
+
         
     if "extract structured metadata" in prompt_lower or "respond with only a valid json" in prompt_lower:
         import re

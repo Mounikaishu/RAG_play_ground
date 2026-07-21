@@ -176,7 +176,11 @@ async def chat(
             "career_goal": career_goal,
             "target_company": target_company,
             "target_role": target_role,
+            "original_query": question,     # Phase 3: will be overwritten by rewrite_query_node
+            "rewritten_query": question,    # Phase 3: will be overwritten by rewrite_query_node
+            "source_documents": [],
         }
+
 
         final_state = app_graph.invoke(state)
         answer = final_state.get("answer", "")

@@ -15,10 +15,28 @@ High cohesion:
   This file ONLY handles document insertion.
   It knows about chunking, embedding, and the DB.
   It does NOT know about the LLM or query answering.
+
+BUG FIX (Issue 2 — Resume Retrieval):
+  Previously imported get_collection from rag_core.db.chromadb_store which opens
+  ChromaDB at a RELATIVE path ("./chroma_db"). The retrieval pipeline uses
+  knowledge_base.collections.get_collection which opens an ABSOLUTE path
+  derived from the file's own location.
+
+  This caused inserts and queries to hit DIFFERENT database files on disk —
+  uploaded resumes were stored but never found by the retrieval system.
+  Logs showed "Stored 2 chunks in student_resumes" followed by zero results.
+
+  Fix: all collection access is now routed through knowledge_base.collections.get_collection
+  to guarantee a single shared ChromaDB instance for both writes and reads.
 """
 
 import hashlib
-from rag_core.db.chromadb_store import get_collection, embed_texts
+from rag_core.db.chromadb_store import embed_texts
+
+# CRITICAL: use knowledge_base.collections.get_collection (absolute path)
+# NOT rag_core.db.chromadb_store.get_collection (relative path "./chroma_db")
+# Both must point to the same physical database file.
+from knowledge_base.collections import get_collection
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str]:
@@ -34,7 +52,7 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str
         text: Raw document text.
         chunk_size: Words per chunk.
         overlap: Words shared between adjacent chunks.
-    
+
     Returns:
         List of text chunk strings.
     """
@@ -101,7 +119,8 @@ def insert_document(
     ids = [f"{doc_id_prefix}_{compute_hash(c)}_{i}" for i, c in enumerate(chunks)]
     metadatas = [metadata or {} for _ in chunks]
 
-    # Step 4: Store in ChromaDB (upsert = safe to re-run, no duplicates)
+    # Step 4: Store in ChromaDB via shared knowledge_base collection manager
+    # (guarantees same absolute DB path as retrieval queries)
     collection = get_collection(collection_name)
     collection.upsert(
         documents=chunks,

@@ -15,10 +15,59 @@ from knowledge_base.retrieval import (
 )
 from knowledge_base.context_builder import build_context
 
+from generation.query_rewriter import get_query_rewriter
+from generation.dynamic_mentor import generate_dynamic_mentor_response
+
+
 # Import 6-stage RAG pipeline functions from the shared RAG_pipeline (rag_core)
-from rag_core.stages.rewrite import rewrite_query
 from rag_core.stages.rerank import rerank_chunks
 from rag_core.stages.refine import refine_chunks
+
+
+# ──────────────────────────────────────────────────────────
+# Phase 3: Query Rewriting Node
+# ──────────────────────────────────────────────────────────
+
+def rewrite_query_node(state: PlacementState) -> PlacementState:
+    """
+    Phase 3: Dedicated query rewriting node.
+
+    Runs BEFORE retrieve_all_node in the LangGraph pipeline.
+    Uses the production QueryRewriter from generation/query_rewriter.py.
+
+    - Stores original query in state["original_query"] for transparency.
+    - Stores rewritten query in state["rewritten_query"] for downstream use.
+    - The question field is NOT mutated — retrieval nodes read rewritten_query.
+    """
+    query = state["question"]
+    career_goal = state.get("career_goal", "")
+    target_company = state.get("target_company", "")
+    target_role = state.get("target_role", "")
+
+    context_hint_parts = []
+    if career_goal:
+        context_hint_parts.append(f"career goal is {career_goal}")
+    if target_company:
+        context_hint_parts.append(f"target company is {target_company}")
+    if target_role:
+        context_hint_parts.append(f"target role is {target_role}")
+    context_hint = ", ".join(context_hint_parts) if context_hint_parts else ""
+
+    rewriter = get_query_rewriter()
+    result = rewriter.rewrite(query, context_hint=context_hint)
+
+    print(f"\n[Phase 3 | QueryRewriter] Original   : '{result.original}'")
+    print(f"[Phase 3 | QueryRewriter] Rewritten  : '{result.rewritten}'")
+    print(f"[Phase 3 | QueryRewriter] Was Rewritten: {result.was_rewritten}")
+    print(f"[Phase 3 | QueryRewriter] Reason     : {result.reason}")
+    if result.abbreviations_expanded:
+        print(f"[Phase 3 | QueryRewriter] Abbrevs    : {result.abbreviations_expanded}")
+
+    return {
+        **state,
+        "original_query": result.original,
+        "rewritten_query": result.rewritten,
+    }
 
 
 # ──────────────────────────────────────────────────────────
@@ -29,19 +78,18 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
     """
     Unified multi-collection retrieval using the Phase 2 Retrieval Engine.
     Delegates to knowledge_base/retrieval.py for all ChromaDB operations.
-    Still applies query rewriting, reranking, and refinement downstream.
+
+    Reads rewritten_query from state (set by the upstream rewrite_query_node).
+    Falls back to the raw question if rewritten_query is not populated.
     """
-    query = state["question"]
+    # Use the Phase 3 rewritten query if available; else fall back to raw question
+    rewritten_query = state.get("rewritten_query") or state["question"]
     user_id = state.get("user_id", "")
-    career_goal = state.get("career_goal", "")
     target_company = state.get("target_company", "")
     target_role = state.get("target_role", "")
 
-    # ── Stage 1: Query Rewriting ──────────────────────────────────────────────
-    context_hint = f"career goal is {career_goal}, target company is {target_company}, target role is {target_role}"
-    rewritten_query = rewrite_query(query, context_hint=context_hint)
-    print(f"\n[RAG DEBUG] Original Query: {query}")
-    print(f"[RAG DEBUG] Rewritten Query: {rewritten_query}")
+    print(f"\n[RAG DEBUG] Original Query  : {state.get('original_query', state['question'])}")
+    print(f"[RAG DEBUG] Rewritten Query : {rewritten_query}")
 
     def _result_to_rag_chunk(r) -> dict:
         """Convert RetrievalResult or legacy dict to RAG-compatible chunk dict."""
@@ -86,7 +134,14 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
     materials_response = kb_retrieve_placement(query=rewritten_query, top_k=8)
     materials_chunks = [_result_to_rag_chunk(r) for r in materials_response.results]
 
-    print(f"[RAG DEBUG] Retrieved Chunks: KB={len(kb_chunks)}, Resume={len(resume_chunks)}, Alumni={len(alumni_chunks)}, Interviews={len(interview_chunks)}, Placement={len(materials_chunks)}")
+    print(f"[RAG DEBUG] Fetched: KB={len(kb_chunks)}, Resume={len(resume_chunks)}, Alumni={len(alumni_chunks)}, Interviews={len(interview_chunks)}, Placement={len(materials_chunks)}")
+    if not resume_chunks:
+        print(f"[RAG DEBUG] ⚠️  Resume context EMPTY for user_id='{user_id}' — check upload flow or re-upload")
+    else:
+        print(f"[RAG DEBUG] ✅  Resume context found: {len(resume_chunks)} chunks for user_id='{user_id}'")
+    if not alumni_chunks:
+        print(f"[RAG DEBUG] ⚠️  Alumni context EMPTY for query='{rewritten_query}'")
+
 
     # ── Stage 3: Reranking ────────────────────────────────────────────────────
     reranked_kb = rerank_chunks(rewritten_query, kb_chunks)
@@ -104,7 +159,7 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
     refined_interviews = refine_chunks(reranked_interviews, top_k=4)
     refined_placement = refine_chunks(reranked_placement, top_k=4)
 
-    print(f"[RAG DEBUG] Refined Context: KB={len(refined_kb)}, Resume={len(refined_resume)}, Alumni={len(refined_alumni)}, Interviews={len(refined_interviews)}, Placement={len(refined_placement)}")
+    print(f"[RAG DEBUG] Refined: KB={len(refined_kb)}, Resume={len(refined_resume)}, Alumni={len(refined_alumni)}, Interviews={len(refined_interviews)}, Placement={len(refined_placement)}")
 
     context_kb = "\n\n".join(refined_kb) if refined_kb else ""
     context_resume = "\n\n".join(refined_resume) if refined_resume else "No resume uploaded yet."
@@ -255,138 +310,158 @@ def retrieve_placement_materials_node(state: PlacementState) -> PlacementState:
 # ──────────────────────────────────────────────────────────
 
 def mentor_node(state: PlacementState) -> PlacementState:
-    """Career guidance and mentorship node."""
-    history_text = "\n".join(state.get("history", [])[-10:])
-
-    prompt = f"""You are an AI Career Mentor at a university with deep knowledge of industry hiring.
-
-Student's Name: {state.get('student_name', 'Student')}
-Student's Department: {state.get('student_dept', 'Unknown')}
-Student's Known Skills: {state.get('student_skills', 'None specified')}
-Student's Resume Profile:
-{state.get('context_resume', 'No resume uploaded yet.')}
-
-Institutional Knowledge (Alumni Profiles, Roadmaps, Placement Data):
-{state.get('context_kb', '')}
-
-Alumni Career Journeys (Real Alumni Resumes):
-{state.get('context_alumni', '')}
-
-Placement Resources & Guides:
-{state.get('context_placement', '')}
-
-Career Goal: {state.get('career_goal', 'Not specified')}
-
-Conversation History:
-{history_text}
-
-Student's Question:
-{state['question']}
-
-CRITICAL INSTRUCTIONS:
-- You are speaking directly to {state.get('student_name', 'Student')}.
-- DO NOT confuse the student with any names or profiles found in the "Alumni Career Journeys". Those are OTHER people who have graduated.
-- If the "Student's Resume Profile" says "No resume uploaded yet", DO NOT assume the student has any skills or background from the alumni profiles.
-- You MUST perform a comprehensive side-by-side comparison between the student's skills/projects/background and multiple retrieved alumni resumes (placed seniors) in the context.
-- Clearly compare the student's profile to each of these matching seniors by name (e.g., comparing their skills/projects to Priya Sharma, Rahul Verma, Sneha Reddy, etc.), highlighting specific skill gaps or project differences.
-- Reference specific alumni success stories and roadmaps, explicitly detailing the senior/alumni names (e.g., "Your senior Priya Sharma, placed at Google, did X...") and details about what they did to get placed.
-- Give structured advice with clear steps, timelines, and priorities based on these senior comparisons.
-- Suggest specific projects, skills, and resources matching the level of successfully placed seniors.
-- Use markdown formatting with headers, bullet points, and bold text."""
-
-    print(f"\n[RAG DEBUG] --- Generation Node: mentor_node ---")
-    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
-    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
-    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
-
-    answer = llm_call(prompt)
+    """Career guidance and mentorship node — Dynamic Retrieval-Driven Generator."""
+    print(f"\n[RAG DEBUG] --- Generation Node: mentor_node (Dynamic) ---")
+    answer = generate_dynamic_mentor_response(state)
     return {**state, "answer": answer}
+
+
 
 
 def interview_prep_node(state: PlacementState) -> PlacementState:
     """Interview preparation node."""
     history_text = "\n".join(state.get("history", [])[-10:])
+    student_name = state.get('student_name', 'Student')
+    target_company = state.get('target_company', 'Not specified')
+    target_role = state.get('target_role', 'Not specified')
+    resume_context = state.get('context_resume', 'No resume uploaded yet.')
+    interview_context = state.get('context_interviews', '')
+    alumni_context = state.get('context_alumni', '')
+    kb_context = state.get('context_kb', '')
+    has_resume = resume_context and resume_context.strip() != 'No resume uploaded yet.'
 
-    prompt = f"""You are an AI Interview Coach with access to real interview experiences from placed students.
+    prompt = f"""You are a personalised AI Interview Coach with access to real interview experiences from placed seniors.
 
-Student's Name: {state.get('student_name', 'Student')}
-Student's Department: {state.get('student_dept', 'Unknown')}
-Student's Known Skills: {state.get('student_skills', 'None specified')}
-Student's Resume:
-{state.get('context_resume', 'No resume uploaded yet.')}
+=== STUDENT PROFILE ===
+Name: {student_name}
+Department: {state.get('student_dept', 'Unknown')}
+Known Skills: {state.get('student_skills', 'None specified')}
+Target Company: {target_company}
+Target Role: {target_role}
 
-Interview Experiences from Seniors:
-{state.get('context_interviews', 'No specific experiences found.')}
+=== STUDENT'S UPLOADED RESUME ===
+{resume_context}
 
-Alumni Career Profiles:
-{state.get('context_alumni', '')}
+=== RETRIEVED INTERVIEW EXPERIENCES (Real Seniors) ===
+{interview_context if interview_context else 'No specific interview experiences found.'}
 
-Related Knowledge Base:
-{state.get('context_kb', '')}
+=== RETRIEVED ALUMNI CAREER PROFILES ===
+{alumni_context if alumni_context else ''}
 
-Target Company: {state.get('target_company', 'Not specified')}
-Target Role: {state.get('target_role', 'Not specified')}
+=== KNOWLEDGE BASE ===
+{kb_context}
 
-Conversation History:
+=== CONVERSATION HISTORY ===
 {history_text}
 
-Student's Question:
+=== STUDENT'S QUESTION ===
 {state['question']}
 
-CRITICAL INSTRUCTIONS:
-- You are speaking directly to {state.get('student_name', 'Student')}.
-- DO NOT confuse the student with any names or profiles found in the Alumni Career Profiles or Interview Experiences.
-- If the Student's Resume says "No resume uploaded yet", DO NOT assume they have the skills of the alumni.
-- Provide company-specific interview preparation based on real senior experiences, referring to seniors by name when recounting their questions or advice (e.g., "Your senior प्रिया Sharma faced this question in Round 2...")
-- List expected questions with preparation strategies
-- Give round-wise preparation guidance
-- Include important topics and concepts to revise
-- Suggest mock interview questions based on the student's resume
-- Reference actual interview experiences from the knowledge base
-- Use markdown with clear sections and formatting"""
+=== ABSOLUTE RULES ===
+
+1. NEVER say "seniors" generically. ALWAYS name specific people.
+   WRONG: "A senior faced this question in Round 2."
+   RIGHT: "Aditya Kumar (Amazon, SDE) was asked: 'Explain HashMap vs HashSet'"
+
+2. For every company mentioned in interview experiences context:
+   - List the EXACT rounds (e.g., OA, Technical 1, HR)
+   - List ACTUAL questions asked (from context)
+   - List ACTUAL topics tested (from context)
+   - Name the senior who shared the experience
+
+3. RESUME-BASED MOCK QUESTIONS (if resume uploaded):
+   - Generate mock interview questions based on the student's actual skills and projects.
+   - Format: "Based on your [project/skill], you may be asked: [question]"
+
+4. If NO resume uploaded: acknowledge, still provide interview guidance from seniors.
+
+5. DO NOT confuse student with alumni/seniors.
+
+6. STRUCTURE response exactly:
+   ## 🏭 Company Overview: {target_company}
+   ## 📝 Round-by-Round Breakdown
+   ## ❓ Actual Questions Asked (from seniors)
+   ## 📚 Topics to Prepare
+   ## 🎯 Mock Questions for You (based on your resume)
+   ## 🗓️ Preparation Timeline
+   ## 🔗 Resources
+
+7. Every point must cite actual names and data from the context. Never invent."""
 
     print(f"\n[RAG DEBUG] --- Generation Node: interview_prep_node ---")
-    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
-    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
-    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
+    print(f"[RAG DEBUG] Has student resume: {has_resume}")
+    print(f"[RAG DEBUG] Interview context length: {len(interview_context)} chars")
+    print(f"[RAG DEBUG] Target: {target_company} / {target_role}")
 
     answer = llm_call(prompt)
     return {**state, "answer": answer}
 
 
 def resume_match_node(state: PlacementState) -> PlacementState:
-    """Interview match — compare student resume against successfully placed alumni."""
-    prompt = f"""You are an AI Interview Matching system comparing a student against successfully placed alumni.
+    """Resume match — compare student resume against successfully placed alumni."""
+    student_name = state.get('student_name', 'Student')
+    student_skills = state.get('student_skills', 'None specified')
+    resume_context = state.get('context_resume', 'No resume uploaded.')
+    alumni_context = state.get('context_alumni', state.get('context_kb', ''))
+    placement_context = state.get('context_placement', '')
+    has_resume = resume_context and resume_context.strip() not in ('No resume uploaded.', 'No resume uploaded yet.')
 
-Student's Name: {state.get('student_name', 'Student')}
-Student's Department: {state.get('student_dept', 'Unknown')}
-Student's Known Skills: {state.get('student_skills', 'None specified')}
-Student's Current Resume:
-{state.get('context_resume', 'No resume uploaded.')}
+    prompt = f"""You are a personalised AI Resume Match Analyst. You compare a student's profile against successfully placed alumni.
 
-Successfully Placed Alumni Profiles:
-{state.get('context_alumni', state.get('context_kb', ''))}
+=== STUDENT PROFILE ===
+Name: {student_name}
+Department: {state.get('student_dept', 'Unknown')}
+Known Skills: {student_skills}
 
-Placement Resources:
-{state.get('context_placement', '')}
+=== STUDENT'S UPLOADED RESUME ===
+{resume_context}
 
-Student's Question:
+=== SUCCESSFULLY PLACED ALUMNI PROFILES ===
+{alumni_context if alumni_context else 'No alumni profiles retrieved.'}
+
+=== PLACEMENT RESOURCES ===
+{placement_context}
+
+=== STUDENT'S QUESTION ===
 {state['question']}
 
-Provide:
-1. **Match Analysis:** How does {state.get('student_name', 'Student')} compare to placed alumni? (DO NOT confuse the student with the alumni). Explicitly name matching seniors/alumni.
-2. **Skill Gap Analysis:** What skills are missing compared to successful candidates?
-3. **Matching Profiles:** Which alumni profiles are most similar? Cite their names and what they did/achieved.
-4. **Improvement Plan:** Specific steps to bridge the gap
-5. **Strength Assessment:** What the student already has going for them
-6. **Timeline:** Realistic timeline to become placement-ready
+=== ABSOLUTE RULES ===
 
-Use markdown. Reference specific alumni profiles by their names and detail their achievements."""
+1. NEVER say "some alumni" or "placed students". Name EVERY person you reference.
+   Format: "[Name] ([Company], [Role]) — [their skills/projects]"
+
+2. EXTRACT from student resume (if uploaded):
+   - Skills the student has
+   - Projects the student has done
+   - Education and experience
+
+3. EXTRACT from each alumni in context:
+   - Skills
+   - Projects
+   - Company and role
+
+4. COMPARISON TABLE (always include):
+   | Category | Student ({student_name}) | Alumni Name | Gap |
+   Show: matching skills ✓, missing skills ✗, matching projects ✓, missing projects ✗
+
+5. If NO resume uploaded:
+   Say so clearly, then still provide alumni analysis with concrete recommendations.
+
+6. DO NOT confuse the student with alumni.
+
+7. STRUCTURE response exactly:
+   ## 📄 Resume Analysis
+   ## 👥 Most Similar Alumni Profiles
+   ## 📊 Skills Comparison Table
+   ## 🛠️ Skill Gaps
+   ## 📦 Project Gaps
+   ## 🏭 Recommended Companies (based on current profile)
+   ## 🗓️ Action Plan
+   ## ⏰ Timeline to Placement Readiness"""
 
     print(f"\n[RAG DEBUG] --- Generation Node: resume_match_node ---")
-    print(f"[RAG DEBUG] Rewritten Query: {state.get('rewritten_query', '')}")
-    print(f"[RAG DEBUG] Source documents used: {state.get('source_documents', [])}")
-    print(f"[RAG DEBUG] Final Prompt sent to Groq:\n{prompt[:600]}...\n")
+    print(f"[RAG DEBUG] Has student resume: {has_resume}")
+    print(f"[RAG DEBUG] Alumni context length: {len(alumni_context)} chars")
 
     answer = llm_call(prompt)
     return {**state, "answer": answer}

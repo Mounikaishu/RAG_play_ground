@@ -22,5 +22,6 @@ class PlacementState(TypedDict):
     career_goal: str
     target_company: str
     target_role: str
-    rewritten_query: str
+    original_query: str         # Phase 3: raw user query (before rewriting)
+    rewritten_query: str        # Phase 3: rewritten query (used for retrieval)
     source_documents: List[str]
