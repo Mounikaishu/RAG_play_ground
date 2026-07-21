@@ -1,200 +1,258 @@
 """
-Alumni Metadata Extractor — Extracts structured metadata from alumni resume text.
+alumni_metadata_extractor.py — Structured Metadata Extraction & Normalization.
 
-Uses Gemini LLM to extract: student_name, company, role, department, batch, skills.
-Falls back to regex-based extraction if LLM fails.
+Uses LLM (Gemini) with regex fallback to extract structured metadata for:
+1. Alumni Resumes (student_name, email, phone, linkedin, github, company, role, skills, education, CGPA, graduation_year, certifications, projects, experience, achievements)
+2. Interview Experiences (company, role, job_type, difficulty, eligibility, package, interview_mode, rounds, technologies, dsa_topics, system_design_topics, behavioral_topics)
+
+Applies canonical normalization via normalizer.py on extracted entities.
 """
 
 import json
 import re
+from typing import Dict, Any, List
 from llm import llm_call
+from knowledge_base.normalizer import (
+    normalize_company,
+    normalize_role,
+    normalize_job_type,
+    normalize_rounds,
+    normalize_difficulty,
+    normalize_skills,
+)
 
 
-def extract_alumni_metadata(text: str) -> dict:
+# ──────────────────────────────────────────────────────────
+# 1. Alumni Resume Metadata Extraction
+# ──────────────────────────────────────────────────────────
+
+def extract_alumni_metadata(text: str) -> Dict[str, Any]:
     """
-    Extract structured metadata from an alumni resume/profile text.
-
-    Returns dict with:
-        - student_name: str
-        - company: str
-        - role: str
-        - department: str
-        - batch: str (graduation year)
-        - skills: list[str]
+    Extract structured metadata from an alumni resume text.
     """
-    prompt = f"""Analyze the following alumni resume/profile text and extract structured metadata.
-You MUST respond with ONLY a valid JSON object, no other text.
+    prompt = f"""Analyze the following resume text and extract structured metadata.
+Respond ONLY with a valid JSON object. No markdown fences.
 
-Resume/Profile Text:
+Resume Text:
 {text[:4000]}
 
-Return EXACTLY this JSON format (no markdown, no code fences, just raw JSON):
+JSON Schema:
 {{
-  "student_name": "<full name of the person>",
-  "company": "<company where they were placed or currently work>",
-  "role": "<job title/role>",
-  "department": "<academic department, e.g. Computer Science, IT, ECE>",
-  "batch": "<graduation/passing out year, e.g. 2023>",
-  "skills": ["skill1", "skill2", "skill3"]
-}}
-
-Important:
-- Extract ALL technical skills mentioned (languages, frameworks, tools)
-- If company is not clear, use "Not Specified"
-- If batch/year is mentioned as "Batch of 2023" or "2019-2023", extract the graduation year
-- Keep skills as individual items"""
+  "student_name": "<full name>",
+  "email": "<email address or null>",
+  "phone": "<phone number or null>",
+  "linkedin": "<linkedin URL/handle or null>",
+  "github": "<github URL/handle or null>",
+  "company": "<placed company or current employer>",
+  "role": "<job title>",
+  "department": "<degree/department, e.g. Computer Science>",
+  "graduation_year": "<4-digit year, e.g. 2023>",
+  "cgpa": "<CGPA value or grade>",
+  "skills": ["skill1", "skill2"],
+  "education": "<short education summary>",
+  "certifications": ["cert1", "cert2"],
+  "projects": ["project1", "project2"],
+  "experience": "<summary of work experience>",
+  "achievements": ["achievement1"]
+}}"""
 
     raw = llm_call(prompt)
 
     try:
         cleaned = re.sub(r"```json\s*", "", raw)
-        cleaned = re.sub(r"```\s*", "", cleaned)
-        cleaned = cleaned.strip()
+        cleaned = re.sub(r"```\s*", "", cleaned).strip()
         data = json.loads(cleaned)
-
-        return {
-            "student_name": data.get("student_name", "Unknown"),
-            "company": data.get("company", "Not Specified"),
-            "role": data.get("role", "Not Specified"),
-            "department": data.get("department", "Not Specified"),
-            "batch": str(data.get("batch", "N/A")),
-            "skills": data.get("skills", []),
-        }
     except Exception as e:
-        print(f"⚠️ LLM metadata extraction failed: {e}. Falling back to regex.")
-        return _regex_fallback(text)
+        print(f"⚠️ LLM resume metadata extraction failed: {e}. Using regex fallback.")
+        data = _regex_resume_fallback(text)
+
+    # Apply Normalization
+    company = normalize_company(data.get("company", "Not Specified"))
+    role = normalize_role(data.get("role", "Software Engineer"))
+    skills = normalize_skills(data.get("skills", []))
+    grad_year = str(data.get("graduation_year", data.get("batch", "N/A")))
+
+    return {
+        "student_name": data.get("student_name", "Unknown"),
+        "email": data.get("email") or "Not Specified",
+        "phone": data.get("phone") or "Not Specified",
+        "linkedin": data.get("linkedin") or "Not Specified",
+        "github": data.get("github") or "Not Specified",
+        "company": company,
+        "role": role,
+        "department": data.get("department", "Computer Science"),
+        "graduation_year": grad_year,
+        "batch": grad_year,
+        "cgpa": str(data.get("cgpa", "N/A")),
+        "skills": skills,
+        "education": data.get("education", "Not Specified"),
+        "certifications": data.get("certifications", []),
+        "projects": data.get("projects", []),
+        "experience": data.get("experience", "Not Specified"),
+        "achievements": data.get("achievements", []),
+    }
 
 
-def _regex_fallback(text: str) -> dict:
-    """Regex-based fallback for metadata extraction."""
+def _regex_resume_fallback(text: str) -> Dict[str, Any]:
+    """Regex fallback for resume metadata."""
     lines = text.strip().split("\n")
-
-    # Try to extract name from first non-empty line
     name = "Unknown"
     for line in lines:
-        line = line.strip()
-        if line and not line.startswith("#") and len(line) < 60:
-            name = line
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and len(stripped) < 50:
+            name = stripped
             break
 
-    # Try to find company
-    company = "Not Specified"
-    company_patterns = [
-        r"(?:placed at|working at|joined|company[:\s]+)\s*(\w[\w\s]+)",
-        r"\|\s*(\w+)\s*\|",  # Matches "| Google |" style
-    ]
-    for pattern in company_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            company = match.group(1).strip()
-            break
+    email = "Not Specified"
+    email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
+    if email_match:
+        email = email_match.group(0)
 
-    # Try to find role
-    role = "Not Specified"
-    role_patterns = [
-        r"(?:role|position|title)[:\s]+(.+)",
-        r"(?:as an?|as)\s+(.+?)(?:\s+with|\s+at|\n)",
-    ]
-    for pattern in role_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            role = match.group(1).strip()
-            break
+    linkedin = "Not Specified"
+    li_match = re.search(r"linkedin\.com/in/[\w-]+", text, re.I)
+    if li_match:
+        linkedin = li_match.group(0)
 
-    # Try to find batch/year
-    batch = "N/A"
-    year_match = re.search(r"(?:batch|graduated|class)\s*(?:of\s*)?(\d{4})", text, re.IGNORECASE)
-    if year_match:
-        batch = year_match.group(1)
+    github = "Not Specified"
+    gh_match = re.search(r"github\.com/[\w-]+", text, re.I)
+    if gh_match:
+        github = gh_match.group(0)
 
-    # Try to find department
-    department = "Not Specified"
-    dept_patterns = [
-        r"(?:department|dept|branch)[:\s]+(.+)",
-        r"B\.?Tech\s+(?:in\s+)?(.+?)(?:\s*[-—]|\n)",
-    ]
-    for pattern in dept_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            department = match.group(1).strip()
-            break
+    cgpa = "N/A"
+    cgpa_match = re.search(r"(?:cgpa|gpa)[:\s]+(\d\.\d{1,2})", text, re.I)
+    if cgpa_match:
+        cgpa = cgpa_match.group(1)
 
-    # Extract skills from SKILLS section
-    skills = []
-    skills_match = re.search(r"SKILLS?\s*\n(.+?)(?:\n\n|\nEXPERIENCE|\nPROJECTS)", text, re.IGNORECASE | re.DOTALL)
-    if skills_match:
-        skills_text = skills_match.group(1)
-        skills = [s.strip() for s in re.split(r"[,\n]", skills_text) if s.strip() and len(s.strip()) < 50]
+    year = "N/A"
+    yr_match = re.search(r"\b(20\d{2})\b", text)
+    if yr_match:
+        year = yr_match.group(1)
 
     return {
         "student_name": name,
-        "company": company,
-        "role": role,
-        "department": department,
-        "batch": batch,
-        "skills": skills[:20],  # Cap at 20 skills
+        "email": email,
+        "phone": "Not Specified",
+        "linkedin": linkedin,
+        "github": github,
+        "company": "Not Specified",
+        "role": "Software Engineer",
+        "department": "Computer Science",
+        "graduation_year": year,
+        "cgpa": cgpa,
+        "skills": [],
+        "education": "Not Specified",
+        "certifications": [],
+        "projects": [],
+        "experience": "Not Specified",
+        "achievements": [],
     }
 
 
-def extract_interview_metadata_from_filename(filename: str) -> dict:
-    """
-    Parse interview metadata from filename convention.
-    Expected format: Company_Role_Round.txt (e.g., Amazon_SDE1_AllRounds.txt)
-    """
-    name = filename.rsplit(".", 1)[0]  # Remove extension
-    parts = name.split("_")
+# ──────────────────────────────────────────────────────────
+# 2. Interview Experience Metadata Extraction
+# ──────────────────────────────────────────────────────────
 
-    company = parts[0] if len(parts) > 0 else "Unknown"
-    role = parts[1] if len(parts) > 1 else "General"
-    round_type = parts[2] if len(parts) > 2 else "all_rounds"
+def extract_interview_metadata_from_filename(filename: str) -> Dict[str, Any]:
+    """Parse initial company and role signals from filename."""
+    base = filename.rsplit(".", 1)[0]
+    parts = base.split("_")
+    company = parts[0] if parts else "Unknown"
+    role = parts[1] if len(parts) > 1 else "Software Engineer"
+    return {
+        "company": normalize_company(company),
+        "role": normalize_role(role),
+    }
+
+
+def extract_interview_metadata_from_content(text: str) -> Dict[str, Any]:
+    """
+    Extract rich interview experience metadata using LLM or regex fallback.
+    """
+    prompt = f"""Analyze the following interview experience text and extract metadata.
+Respond ONLY with a valid JSON object. No markdown.
+
+Interview Experience Text:
+{text[:4000]}
+
+JSON Schema:
+{{
+  "company": "<company name>",
+  "role": "<job role>",
+  "job_type": "<FTE or Internship>",
+  "difficulty": "<Easy, Medium, or Hard>",
+  "eligibility": "<eligibility criteria or null>",
+  "package": "<compensation/package info or null>",
+  "interview_mode": "<Online, Onsite, or Hybrid>",
+  "rounds": ["Online Assessment", "Technical Round 1", "HR Round"],
+  "technologies": ["Python", "AWS"],
+  "dsa_topics": ["Sliding Window", "Trees", "Dynamic Programming"],
+  "system_design_topics": ["Rate Limiter", "LRU Cache"],
+  "behavioral_topics": ["Leadership Principles", "Conflict Resolution"]
+}}"""
+
+    raw = llm_call(prompt)
+
+    try:
+        cleaned = re.sub(r"```json\s*", "", raw)
+        cleaned = re.sub(r"```\s*", "", cleaned).strip()
+        data = json.loads(cleaned)
+    except Exception as e:
+        print(f"⚠️ LLM interview metadata extraction failed: {e}. Using regex fallback.")
+        data = _regex_interview_fallback(text)
+
+    # Canonical Normalization
+    company = normalize_company(data.get("company", "Unknown"))
+    role = normalize_role(data.get("role", "Software Engineer"))
+    job_type = normalize_job_type(data.get("job_type", "FTE"))
+    difficulty = normalize_difficulty(data.get("difficulty", "Medium"))
+    rounds = normalize_rounds(data.get("rounds", ["Technical Round 1"]))
 
     return {
         "company": company,
         "role": role,
-        "round": round_type,
+        "job_type": job_type,
+        "difficulty": difficulty,
+        "eligibility": data.get("eligibility") or "Not Specified",
+        "package": data.get("package") or "Not Specified",
+        "interview_mode": data.get("interview_mode") or "Online",
+        "rounds": rounds,
+        "technologies": normalize_skills(data.get("technologies", [])),
+        "dsa_topics": normalize_skills(data.get("dsa_topics", [])),
+        "system_design_topics": normalize_skills(data.get("system_design_topics", [])),
+        "behavioral_topics": normalize_skills(data.get("behavioral_topics", [])),
     }
 
 
-def extract_interview_metadata_from_content(text: str) -> dict:
-    """
-    Extract interview metadata from the content of the file.
-    Looks for structured headers like 'Company:', 'Role:', 'Difficulty:'.
-    """
-    metadata = {
-        "company": "Unknown",
-        "role": "General",
-        "round": "all_rounds",
-        "difficulty": "Medium",
-    }
+def _regex_interview_fallback(text: str) -> Dict[str, Any]:
+    """Regex fallback for interview experience metadata."""
+    comp_match = re.search(r"Company[:\s]+(.+)", text, re.I)
+    role_match = re.search(r"Role[:\s]+(.+)", text, re.I)
+    diff_match = re.search(r"Difficulty[:\s]+(.+)", text, re.I)
 
-    patterns = {
-        "company": r"Company[:\s]+(.+)",
-        "role": r"Role[:\s]+(.+)",
-        "difficulty": r"Difficulty[:\s]+(.+)",
-    }
+    company = comp_match.group(1).strip() if comp_match else "Unknown"
+    role = role_match.group(1).strip() if role_match else "Software Engineer"
+    difficulty = diff_match.group(1).strip() if diff_match else "Medium"
 
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            metadata[key] = match.group(1).strip()
-
-    # Detect rounds from content
     rounds_found = []
-    round_keywords = {
-        "online_assessment": ["online assessment", "hackerrank", "coding test", "OA"],
-        "technical": ["technical round", "coding round", "dsa round"],
-        "system_design": ["system design", "design round"],
-        "behavioral": ["behavioral", "hr round", "managerial"],
-        "bar_raiser": ["bar raiser"],
-    }
     text_lower = text.lower()
-    for round_name, keywords in round_keywords.items():
-        if any(kw in text_lower for kw in keywords):
-            rounds_found.append(round_name)
+    if "online assessment" in text_lower or "hackerrank" in text_lower:
+        rounds_found.append("Online Assessment")
+    if "technical round" in text_lower or "coding round" in text_lower:
+        rounds_found.append("Technical Round 1")
+    if "hr round" in text_lower or "behavioral" in text_lower:
+        rounds_found.append("HR / Behavioral Round")
 
-    if rounds_found:
-        metadata["round"] = ", ".join(rounds_found) if len(rounds_found) > 1 else rounds_found[0]
-    if len(rounds_found) > 2:
-        metadata["round"] = "all_rounds"
-
-    return metadata
+    return {
+        "company": company,
+        "role": role,
+        "job_type": "FTE",
+        "difficulty": difficulty,
+        "eligibility": "Not Specified",
+        "package": "Not Specified",
+        "interview_mode": "Online",
+        "rounds": rounds_found or ["Technical Round 1"],
+        "technologies": [],
+        "dsa_topics": [],
+        "system_design_topics": [],
+        "behavioral_topics": [],
+    }

@@ -150,3 +150,5 @@ def reset_database():
     os.makedirs(CHROMA_DB_PATH, exist_ok=True)
     clear_registry()
     print("   Database and registry cleared.")
+if __name__ == "__main__":
+    load_knowledge_base()

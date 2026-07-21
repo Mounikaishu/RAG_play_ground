@@ -13,7 +13,6 @@ DATA_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 DATA_FOLDERS = {
     "alumni_resumes": os.path.join(DATA_ROOT, "alumni_resumes"),
     "interview_experiences": os.path.join(DATA_ROOT, "interview_experiences"),
-    "interview_experiencee": os.path.join(DATA_ROOT, "interview_experiencee"),
     "placement_materials": os.path.join(DATA_ROOT, "placement_materials"),
 }
 

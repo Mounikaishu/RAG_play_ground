@@ -71,7 +71,6 @@ async def root(request: Request):
         "data_folders": [
             "backend/data/alumni_resumes/",
             "backend/data/interview_experiences/",
-            "backend/data/interview_experiencee/",
             "backend/data/placement_materials/",
         ],
         "notes": {

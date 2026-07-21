@@ -134,22 +134,69 @@ def search_kb(query: str, collection_name: str, k: int = 5, where: dict = None):
 
 
 def search_alumni_resumes(query: str, k: int = 5, company: str = None,
-                           department: str = None, batch: str = None):
+                           department: str = None, batch: str = None,
+                           role: str = None, section: str = None):
     """
-    Search across alumni resume embeddings with optional filters.
+    Search across alumni resume embeddings with optional metadata filters.
     Returns list of {document, metadata, distance}.
     """
-    where = {}
+    where_conditions = []
     if company:
-        where["company"] = company
+        where_conditions.append({"company": company})
     if department:
-        where["department"] = department
+        where_conditions.append({"department": department})
     if batch:
-        where["batch"] = batch
+        where_conditions.append({"batch": str(batch)})
+    if role:
+        where_conditions.append({"role": role})
+    if section:
+        where_conditions.append({"section_title": section})
+
+    if len(where_conditions) == 1:
+        where = where_conditions[0]
+    elif len(where_conditions) > 1:
+        where = {"$and": where_conditions}
+    else:
+        where = None
 
     return search_kb(
         query, "alumni_resumes", k=k,
-        where=where if where else None,
+        where=where,
+    )
+
+
+def search_interview_experiences(query: str, k: int = 5, company: str = None,
+                                  role: str = None, difficulty: str = None,
+                                  job_type: str = None, round_name: str = None,
+                                  section: str = None):
+    """
+    Search across interview experience embeddings with metadata filters.
+    Supports filtering by company, role, difficulty, job_type, round_name, section.
+    """
+    where_conditions = []
+    if company:
+        where_conditions.append({"company": company})
+    if role:
+        where_conditions.append({"role": role})
+    if difficulty:
+        where_conditions.append({"difficulty": difficulty})
+    if job_type:
+        where_conditions.append({"job_type": job_type})
+    if round_name:
+        where_conditions.append({"round": round_name})
+    if section:
+        where_conditions.append({"section_title": section})
+
+    if len(where_conditions) == 1:
+        where = where_conditions[0]
+    elif len(where_conditions) > 1:
+        where = {"$and": where_conditions}
+    else:
+        where = None
+
+    return search_kb(
+        query, "interview_experiences", k=k,
+        where=where,
     )
 
 

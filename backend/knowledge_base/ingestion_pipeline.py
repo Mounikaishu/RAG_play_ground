@@ -1,22 +1,27 @@
 """
-Ingestion Pipeline — Core processing engine for multi-document RAG.
+Ingestion Pipeline — Production Document Processing Engine for PlaceAI RAG.
 
-Three pipelines:
-1. Alumni Resume Pipeline — Extract text, LLM metadata, chunk, store in alumni_resumes_collection
-2. Interview Experience Pipeline — Parse metadata from filename+content, chunk, store
-3. Placement Materials Pipeline — Categorize content, chunk, store
+Pipelines:
+1. Alumni Resume Pipeline       — Docling parse → LLM Metadata → Section Chunks → ChromaDB
+2. Interview Experience Pipeline — Docling parse → Metadata → Section Chunks → ChromaDB
+3. Placement Materials Pipeline  — Docling/Flat parse → Categorize → Chunks → ChromaDB
 
-Each pipeline:
-- Checks file hash against registry for deduplication
-- Handles errors gracefully per-file
-- Records successful ingestion with metadata
+Features:
+- Automatic Document Classifier (content + filename signals)
+- Stage-by-Stage Telemetry Logging with Execution Timings:
+    Scanning... -> Parsing... -> Cleaning... -> Metadata extraction... -> Chunking... -> Embedding... -> Stored into Chroma... -> Finished
+- Rich ChromaDB metadata per chunk
+- Extended registry tracking
 """
 
+import time
+import logging
 import os
 import traceback
-from typing import List
+from typing import List, Dict, Any
 
 from knowledge_base.file_scanner import FileInfo
+from knowledge_base.classifier import classify_document
 from knowledge_base.ingestion_registry import (
     is_file_ingested,
     record_ingestion,
@@ -26,192 +31,313 @@ from knowledge_base.alumni_metadata_extractor import (
     extract_interview_metadata_from_filename,
     extract_interview_metadata_from_content,
 )
-from knowledge_base.collections import (
-    store_kb_document,
-    store_kb_documents_batch,
-    get_collection,
-)
+from knowledge_base.collections import get_collection
 from chunker import chunk_text_with_overlap
 from pdf_loader import load_pdf
 
+# Docling-based structured preprocessing
+from knowledge_base.docling_parser import parse_pdf as docling_parse_pdf, docling_available
+from knowledge_base.docling_chunker import chunk_parsed_document, DocChunk
 
-def _read_file(file_info: FileInfo) -> str:
-    """Read text content from a PDF file (including OCR for embedded images)."""
+logger = logging.getLogger("uvicorn.error")
+
+
+def _log_stage(filename: str, stage: str, elapsed: float = None):
+    """Format stage-by-stage timing logs."""
+    time_str = f" ({elapsed:.3f}s)" if elapsed is not None else ""
+    print(f"   ⏱️ [{filename}] {stage}...{time_str}")
+
+
+def _parse_file(file_info: FileInfo, document_type: str = "Unknown"):
+    """Parse PDF with Docling, fallback to pdf_loader."""
     if file_info.extension != ".pdf":
-        raise ValueError(f"Unsupported file type: {file_info.extension}. Only PDF is accepted.")
-    return load_pdf(file_info.path)
+        raise ValueError(f"Unsupported file type: {file_info.extension}")
+
+    if docling_available():
+        try:
+            return docling_parse_pdf(file_info.path, document_type=document_type)
+        except Exception as exc:
+            logger.warning("⚠️ Docling parse failed for %s (%s). Falling back to pdf_loader.", file_info.filename, exc)
+
+    flat_text = load_pdf(file_info.path)
+    from dataclasses import dataclass, field as dc_field
+
+    @dataclass
+    class _FlatParsedOutput:
+        document_type: str
+        document_name: str
+        metadata: dict
+        sections: list = dc_field(default_factory=list)
+        tables: list = dc_field(default_factory=list)
+        figures: list = dc_field(default_factory=list)
+        full_text: str = ""
+
+    return _FlatParsedOutput(
+        document_type=document_type,
+        document_name=file_info.filename,
+        metadata={"filename": file_info.filename, "page_count": 1, "document_title": file_info.filename},
+        full_text=flat_text,
+    )
 
 
 def _generate_doc_id(folder_type: str, filename: str, chunk_index: int) -> str:
     """Generate a unique document ID for a chunk."""
-    base = filename.rsplit(".", 1)[0]  # Remove extension
+    base = filename.rsplit(".", 1)[0]
     safe_name = base.lower().replace(" ", "_").replace("-", "_")
     return f"{folder_type}_{safe_name}_chunk_{chunk_index}"
 
 
 # ──────────────────────────────────────────────────────────
-# Pipeline 1: Alumni Resumes
+# Pipeline 1: Alumni Resume
 # ──────────────────────────────────────────────────────────
 
 def ingest_alumni_resume(file_info: FileInfo) -> dict:
-    """
-    Process a single alumni resume file.
+    """Ingest Alumni Resume PDF using Docling + rich metadata extraction."""
+    t_start = time.time()
+    fname = file_info.filename
+    print(f"\n📄 Starting processing: {fname}")
 
-    Steps:
-    1. Read PDF/TXT text
-    2. Extract metadata via Gemini (name, company, role, dept, batch, skills)
-    3. Chunk text with overlap
-    4. Store chunks + metadata in alumni_resumes_collection
+    # Stage: Parsing
+    t0 = time.time()
+    _log_stage(fname, "Parsing")
+    parsed = _parse_file(file_info, document_type="Alumni Resume")
+    t_parse = time.time() - t0
+    _log_stage(fname, "Cleaning", t_parse)
 
-    Returns summary dict with ingestion results.
-    """
-    print(f"  📄 Processing alumni resume: {file_info.filename}")
-
-    # Read content
-    text = _read_file(file_info)
-    if not text.strip():
+    if not parsed.full_text.strip() and not parsed.sections:
         return {"status": "skipped", "reason": "empty file"}
 
-    # Extract metadata using LLM
-    metadata = extract_alumni_metadata(text)
-    print(f"     → Extracted: {metadata['student_name']} | {metadata['company']} | {metadata['role']}")
+    # Stage: Metadata extraction
+    t0 = time.time()
+    _log_stage(fname, "Metadata extraction")
+    meta = extract_alumni_metadata(parsed.full_text)
+    t_meta = time.time() - t0
+    _log_stage(fname, "Metadata extraction complete", t_meta)
 
-    # Chunk text
-    chunks = chunk_text_with_overlap(text, chunk_size=500, overlap=100)
-    if not chunks:
+    # Stage: Chunking
+    t0 = time.time()
+    _log_stage(fname, "Chunking")
+    if parsed.sections:
+        doc_chunks: List[DocChunk] = chunk_parsed_document(parsed)
+    else:
+        raw_chunks = chunk_text_with_overlap(parsed.full_text, chunk_size=400, overlap=80)
+        doc_chunks = [
+            DocChunk(
+                text=c, section_title="Summary", page_number=1,
+                chunk_index=i, document_type="Alumni Resume",
+                source_file=fname, chunk_source="section",
+            ) for i, c in enumerate(raw_chunks)
+        ]
+    t_chunk = time.time() - t0
+    _log_stage(fname, f"Chunking complete ({len(doc_chunks)} chunks)", t_chunk)
+
+    if not doc_chunks:
         return {"status": "skipped", "reason": "no chunks generated"}
 
-    # Store each chunk with metadata
+    # Stage: Embedding & ChromaDB Store
+    t0 = time.time()
+    _log_stage(fname, "Embedding & Storing into Chroma")
     collection = get_collection("alumni_resumes")
-    ids = []
-    texts = []
-    metas = []
+    ids, texts, metas = [], [], []
 
-    skills_str = ", ".join(metadata.get("skills", []))
+    skills_str = ", ".join(meta.get("skills", []))
+    certs_str = ", ".join(meta.get("certifications", []))
+    projects_str = ", ".join(meta.get("projects", []))
 
-    for i, chunk in enumerate(chunks):
-        doc_id = _generate_doc_id("alumni", file_info.filename, i)
+    for chunk in doc_chunks:
+        doc_id = _generate_doc_id("alumni", fname, chunk.chunk_index)
         ids.append(doc_id)
-        texts.append(chunk)
+        texts.append(chunk.text)
         metas.append({
-            "student_name": metadata["student_name"],
-            "company": metadata["company"],
-            "role": metadata["role"],
-            "department": metadata["department"],
-            "batch": metadata["batch"],
+            "document_type": "resume",
+            "student_name": meta["student_name"],
+            "email": meta.get("email", ""),
+            "company": meta["company"],
+            "role": meta["role"],
+            "department": meta["department"],
+            "batch": meta["graduation_year"],
+            "graduation_year": meta["graduation_year"],
+            "cgpa": meta.get("cgpa", "N/A"),
             "skills": skills_str,
-            "source_file": file_info.filename,
-            "chunk_index": i,
+            "certifications": certs_str,
+            "projects": projects_str,
+            "section_title": chunk.section_title,
+            "section": chunk.section_title,
+            "page_number": chunk.page_number,
+            "page": chunk.page_number,
+            "chunk_source": chunk.chunk_source,
+            "source_file": fname,
+            "chunk_index": chunk.chunk_index,
             "category": "alumni_resume",
         })
 
-    # Batch upsert
     collection.upsert(documents=texts, ids=ids, metadatas=metas)
+    t_store = time.time() - t0
+    _log_stage(fname, "Stored into Chroma", t_store)
 
-    # Record in registry
+    total_duration = time.time() - t_start
+
+    # Record Telemetry
     record_ingestion(
         file_hash=file_info.file_hash,
-        filename=file_info.filename,
+        filename=fname,
         folder_type=file_info.folder_type,
         collection="alumni_resumes_collection",
-        chunk_count=len(chunks),
+        chunk_count=len(doc_chunks),
+        document_type="Alumni Resume",
+        pages=parsed.metadata.get("page_count", 1),
+        ingestion_duration_sec=total_duration,
+        processing_status="success",
         metadata={
-            "student_name": metadata["student_name"],
-            "company": metadata["company"],
-            "role": metadata["role"],
+            "student_name": meta["student_name"],
+            "company": meta["company"],
+            "role": meta["role"],
         },
     )
 
+    _log_stage(fname, "Finished", total_duration)
     return {
         "status": "success",
-        "filename": file_info.filename,
-        "chunks": len(chunks),
-        "metadata": metadata,
+        "filename": fname,
+        "chunks": len(doc_chunks),
+        "duration_sec": total_duration,
+        "metadata": meta,
     }
 
 
 # ──────────────────────────────────────────────────────────
-# Pipeline 2: Interview Experiences
+# Pipeline 2: Interview Experience
 # ──────────────────────────────────────────────────────────
 
 def ingest_interview_experience(file_info: FileInfo) -> dict:
-    """
-    Process a single interview experience file.
+    """Ingest Interview Experience PDF using Docling + rich metadata extraction."""
+    t_start = time.time()
+    fname = file_info.filename
+    print(f"\n📄 Starting processing: {fname}")
 
-    Steps:
-    1. Read content
-    2. Parse metadata from filename + content
-    3. Chunk content
-    4. Store in interview_experiences collection
+    # Stage: Parsing
+    t0 = time.time()
+    _log_stage(fname, "Parsing")
+    parsed = _parse_file(file_info, document_type="Interview Experience")
+    t_parse = time.time() - t0
+    _log_stage(fname, "Cleaning", t_parse)
 
-    Returns summary dict.
-    """
-    print(f"  📄 Processing interview experience: {file_info.filename}")
-
-    text = _read_file(file_info)
-    if not text.strip():
+    if not parsed.full_text.strip() and not parsed.sections:
         return {"status": "skipped", "reason": "empty file"}
 
-    # Extract metadata from filename + content
-    filename_meta = extract_interview_metadata_from_filename(file_info.filename)
-    content_meta = extract_interview_metadata_from_content(text)
+    # Stage: Metadata extraction
+    t0 = time.time()
+    _log_stage(fname, "Metadata extraction")
+    fn_meta = extract_interview_metadata_from_filename(fname)
+    content_meta = extract_interview_metadata_from_content(parsed.full_text)
 
-    # Merge: content metadata overrides filename metadata if more specific
-    metadata = {
-        "company": content_meta.get("company", filename_meta["company"]),
-        "role": content_meta.get("role", filename_meta["role"]),
-        "round": content_meta.get("round", filename_meta["round"]),
+    comp = content_meta["company"] if content_meta["company"] != "Unknown" else fn_meta["company"]
+    role = content_meta["role"] if content_meta["role"] != "Software Engineer" else fn_meta["role"]
+
+    meta = {
+        "company": comp,
+        "role": role,
+        "job_type": content_meta.get("job_type", "FTE"),
         "difficulty": content_meta.get("difficulty", "Medium"),
+        "eligibility": content_meta.get("eligibility", "Not Specified"),
+        "package": content_meta.get("package", "Not Specified"),
+        "interview_mode": content_meta.get("interview_mode", "Online"),
+        "rounds": content_meta.get("rounds", ["Technical Round 1"]),
+        "technologies": content_meta.get("technologies", []),
+        "dsa_topics": content_meta.get("dsa_topics", []),
+        "system_design_topics": content_meta.get("system_design_topics", []),
+        "behavioral_topics": content_meta.get("behavioral_topics", []),
     }
+    t_meta = time.time() - t0
+    _log_stage(fname, "Metadata extraction complete", t_meta)
 
-    # Use content metadata company only if it's not "Unknown"
-    if metadata["company"] == "Unknown":
-        metadata["company"] = filename_meta["company"]
+    # Stage: Chunking
+    t0 = time.time()
+    _log_stage(fname, "Chunking")
+    if parsed.sections:
+        doc_chunks: List[DocChunk] = chunk_parsed_document(parsed)
+    else:
+        raw_chunks = chunk_text_with_overlap(parsed.full_text, chunk_size=400, overlap=80)
+        doc_chunks = [
+            DocChunk(
+                text=c, section_title="Interview Experience", page_number=1,
+                chunk_index=i, document_type="Interview Experience",
+                source_file=fname, chunk_source="section",
+            ) for i, c in enumerate(raw_chunks)
+        ]
+    t_chunk = time.time() - t0
+    _log_stage(fname, f"Chunking complete ({len(doc_chunks)} chunks)", t_chunk)
 
-    print(f"     → {metadata['company']} | {metadata['role']} | Round: {metadata['round']}")
-
-    # Chunk text
-    chunks = chunk_text_with_overlap(text, chunk_size=500, overlap=100)
-    if not chunks:
+    if not doc_chunks:
         return {"status": "skipped", "reason": "no chunks generated"}
 
-    # Store chunks
+    # Stage: Embedding & ChromaDB Store
+    t0 = time.time()
+    _log_stage(fname, "Embedding & Storing into Chroma")
     collection = get_collection("interview_experiences")
-    ids = []
-    texts = []
-    metas = []
+    ids, texts, metas = [], [], []
 
-    for i, chunk in enumerate(chunks):
-        doc_id = _generate_doc_id("interview", file_info.filename, i)
+    rounds_str = ", ".join(meta["rounds"])
+    tech_str = ", ".join(meta["technologies"])
+    dsa_str = ", ".join(meta["dsa_topics"])
+    sys_str = ", ".join(meta["system_design_topics"])
+
+    for chunk in doc_chunks:
+        doc_id = _generate_doc_id("interview", fname, chunk.chunk_index)
         ids.append(doc_id)
-        texts.append(chunk)
+        texts.append(chunk.text)
         metas.append({
-            "company": metadata["company"],
-            "role": metadata["role"],
-            "round": metadata["round"],
-            "difficulty": metadata["difficulty"],
-            "source_file": file_info.filename,
-            "chunk_index": i,
+            "document_type": "interview_experience",
+            "company": meta["company"],
+            "role": meta["role"],
+            "job_type": meta["job_type"],
+            "difficulty": meta["difficulty"],
+            "round": meta["rounds"][0] if meta["rounds"] else "Technical Round 1",
+            "rounds": rounds_str,
+            "section_title": chunk.section_title,
+            "section": chunk.section_title,
+            "page_number": chunk.page_number,
+            "page": chunk.page_number,
+            "technologies": tech_str,
+            "dsa_topics": dsa_str,
+            "system_design_topics": sys_str,
+            "chunk_source": chunk.chunk_source,
+            "source_file": fname,
+            "chunk_index": chunk.chunk_index,
             "category": "interview",
         })
 
     collection.upsert(documents=texts, ids=ids, metadatas=metas)
+    t_store = time.time() - t0
+    _log_stage(fname, "Stored into Chroma", t_store)
 
-    # Record in registry
+    total_duration = time.time() - t_start
+
+    # Record Telemetry
     record_ingestion(
         file_hash=file_info.file_hash,
-        filename=file_info.filename,
+        filename=fname,
         folder_type=file_info.folder_type,
         collection="interview_experiences",
-        chunk_count=len(chunks),
-        metadata=metadata,
+        chunk_count=len(doc_chunks),
+        document_type="Interview Experience",
+        pages=parsed.metadata.get("page_count", 1),
+        ingestion_duration_sec=total_duration,
+        processing_status="success",
+        metadata={
+            "company": meta["company"],
+            "role": meta["role"],
+            "difficulty": meta["difficulty"],
+        },
     )
 
+    _log_stage(fname, "Finished", total_duration)
     return {
         "status": "success",
-        "filename": file_info.filename,
-        "chunks": len(chunks),
-        "metadata": metadata,
+        "filename": fname,
+        "chunks": len(doc_chunks),
+        "duration_sec": total_duration,
+        "metadata": meta,
     }
 
 
@@ -219,127 +345,109 @@ def ingest_interview_experience(file_info: FileInfo) -> dict:
 # Pipeline 3: Placement Materials
 # ──────────────────────────────────────────────────────────
 
-def _categorize_placement_material(text: str, filename: str) -> str:
-    """Categorize placement material by content keywords."""
-    text_lower = text.lower()
-    filename_lower = filename.lower()
-
-    if any(kw in text_lower or kw in filename_lower for kw in ["ats", "resume", "cv"]):
-        return "ats_guide"
-    elif any(kw in text_lower or kw in filename_lower for kw in ["roadmap", "career path", "learning path"]):
-        return "roadmap"
-    elif any(kw in text_lower or kw in filename_lower for kw in ["dsa", "leetcode", "algorithm", "data structure"]):
-        return "dsa_questions"
-    elif any(kw in text_lower or kw in filename_lower for kw in ["strategy", "timeline", "preparation"]):
-        return "strategy"
-    elif any(kw in text_lower or kw in filename_lower for kw in ["system design"]):
-        return "system_design"
-    elif any(kw in text_lower or kw in filename_lower for kw in ["behavioral", "hr", "soft skill"]):
-        return "behavioral_guide"
-    else:
-        return "general_resource"
-
-
 def ingest_placement_material(file_info: FileInfo) -> dict:
-    """
-    Process a single placement material file.
+    """Ingest Placement Material PDF."""
+    t_start = time.time()
+    fname = file_info.filename
+    print(f"\n📄 Starting processing: {fname}")
 
-    Steps:
-    1. Read content
-    2. Categorize by content analysis
-    3. Chunk and store in placement_materials_collection
+    _log_stage(fname, "Parsing")
+    parsed = _parse_file(file_info, document_type="Placement Material")
+    _log_stage(fname, "Cleaning")
 
-    Returns summary dict.
-    """
-    print(f"  📄 Processing placement material: {file_info.filename}")
-
-    text = _read_file(file_info)
-    if not text.strip():
+    if not parsed.full_text.strip():
         return {"status": "skipped", "reason": "empty file"}
 
-    # Categorize
-    material_type = _categorize_placement_material(text, file_info.filename)
-    print(f"     → Category: {material_type}")
+    _log_stage(fname, "Metadata extraction")
+    material_type = "placement_guide"
+    if "dsa" in fname.lower():
+        material_type = "dsa_questions"
+    elif "roadmap" in fname.lower():
+        material_type = "roadmap"
 
-    # Chunk text
-    chunks = chunk_text_with_overlap(text, chunk_size=500, overlap=100)
-    if not chunks:
-        return {"status": "skipped", "reason": "no chunks generated"}
+    _log_stage(fname, "Chunking")
+    chunks = chunk_text_with_overlap(parsed.full_text, chunk_size=500, overlap=100)
 
-    # Store chunks
+    _log_stage(fname, "Embedding & Storing into Chroma")
     collection = get_collection("placement_materials")
-    ids = []
-    texts = []
-    metas = []
+    ids, texts, metas = [], [], []
 
-    for i, chunk in enumerate(chunks):
-        doc_id = _generate_doc_id("placement", file_info.filename, i)
+    for i, c in enumerate(chunks):
+        doc_id = _generate_doc_id("placement", fname, i)
         ids.append(doc_id)
-        texts.append(chunk)
+        texts.append(c)
         metas.append({
+            "document_type": "placement_material",
             "type": material_type,
-            "source_file": file_info.filename,
+            "source_file": fname,
             "chunk_index": i,
             "category": "placement_material",
         })
 
     collection.upsert(documents=texts, ids=ids, metadatas=metas)
+    total_duration = time.time() - t_start
 
-    # Record in registry
     record_ingestion(
         file_hash=file_info.file_hash,
-        filename=file_info.filename,
+        filename=fname,
         folder_type=file_info.folder_type,
         collection="placement_materials_collection",
         chunk_count=len(chunks),
+        document_type="Placement Material",
+        pages=parsed.metadata.get("page_count", 1),
+        ingestion_duration_sec=total_duration,
+        processing_status="success",
         metadata={"type": material_type},
     )
 
-    return {
-        "status": "success",
-        "filename": file_info.filename,
-        "chunks": len(chunks),
-        "metadata": {"type": material_type},
-    }
+    _log_stage(fname, "Finished", total_duration)
+    return {"status": "success", "filename": fname, "chunks": len(chunks), "duration_sec": total_duration}
 
 
 # ──────────────────────────────────────────────────────────
-# Batch Processing
+# Dispatcher with Automatic Classification
 # ──────────────────────────────────────────────────────────
 
 PIPELINE_MAP = {
-    "alumni_resumes": ingest_alumni_resume,
-    "interview_experiences": ingest_interview_experience,
-    "interview_experiencee": ingest_interview_experience,
-    "placement_materials": ingest_placement_material,
+    "Alumni Resume": ingest_alumni_resume,
+    "Interview Experience": ingest_interview_experience,
+    "Placement Material": ingest_placement_material,
+    "Student Resume": ingest_alumni_resume,
 }
 
 
 def process_files(files: List[FileInfo], folder_type: str) -> dict:
     """
-    Process a list of files through the appropriate pipeline.
-    Skips already-ingested files (by hash).
-
-    Returns summary: {processed, skipped, errors, details}
+    Process a list of PDF files through the appropriate pipeline.
+    Uses automatic classifier to inspect document content and route correctly.
     """
-    pipeline_fn = PIPELINE_MAP.get(folder_type)
-    if not pipeline_fn:
-        print(f"⚠️ No pipeline for folder type: {folder_type}")
-        return {"processed": 0, "skipped": 0, "errors": 0, "details": []}
-
     processed = 0
     skipped = 0
     errors = 0
     details = []
 
     for file_info in files:
-        # Dedup check
         if is_file_ingested(file_info.file_hash):
             skipped += 1
             details.append({"filename": file_info.filename, "status": "skipped", "reason": "already ingested"})
             continue
 
         try:
+            # Stage: Scanning & Classification
+            _log_stage(file_info.filename, "Scanning")
+            parsed_preview = _parse_file(file_info, document_type="Preview")
+            detected_type, conf = classify_document(file_info.filename, parsed_preview.full_text[:3000], folder_type)
+
+            pipeline_fn = PIPELINE_MAP.get(detected_type)
+            if not pipeline_fn:
+                # Fallback to folder_type mapping
+                if "interview" in folder_type:
+                    pipeline_fn = ingest_interview_experience
+                elif "alumni" in folder_type:
+                    pipeline_fn = ingest_alumni_resume
+                else:
+                    pipeline_fn = ingest_placement_material
+
             result = pipeline_fn(file_info)
             if result["status"] == "success":
                 processed += 1
