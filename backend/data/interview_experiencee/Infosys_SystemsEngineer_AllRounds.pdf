@@ -1,0 +1,43 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 800 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 750 Td
+(Company: Infosys) Tj T*
+(Role: Systems Engineer) Tj T*
+(Difficulty: Easy) Tj T*
+(Round: All Rounds) Tj T*
+() Tj T*
+(Overall Experience:) Tj T*
+(InfyTQ Coding Round: Three questions - pattern printing, array manipulation, string processing.) Tj T*
+() Tj T*
+(Technical Interview: Explain difference between method overriding and overloading.) Tj T*
+(Write SQL queries for inner, left, and right joins.) Tj T*
+(Basic questions about C++ pointer concepts and memory management.) Tj T*
+() Tj T*
+(HR Round: Standard HR questions - tell me about yourself, strengths, weaknesses,) Tj T*
+(short-term and long-term goals, relocation preferences.) Tj T*
+() Tj T*
+(Tips: Focus on basic DSA and OOPS concepts.) Tj T*
+(InfyTQ certification gives an edge in shortlisting.) Tj T*
+ET
+endstream
+endobj
+trailer
+<< /Size 6 /Root 1 0 R >>
+%%EOF

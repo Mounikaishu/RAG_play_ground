@@ -1,0 +1,42 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 850 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 750 Td
+(Company: Microsoft) Tj T*
+(Role: SDE Intern) Tj T*
+(Difficulty: Medium) Tj T*
+(Round: All Rounds) Tj T*
+() Tj T*
+(Overall Experience:) Tj T*
+(Online Coding Round: Three questions on strings and arrays. One was to find the transition point in a binary array.) Tj T*
+() Tj T*
+(Technical Round 1: Implement a binary search tree with insert, delete, and search operations.) Tj T*
+(Discussed AVL and Red-Black tree balancing strategies. The interviewer asked about height-balanced properties.) Tj T*
+() Tj T*
+(Technical Round 2: Find the longest palindromic substring. I started with a brute-force approach,) Tj T*
+(optimized it to O\(N^2\) using dynamic programming, and then discussed the expand-around-center approach.) Tj T*
+() Tj T*
+(HR Round: Questions about Microsoft culture, Azure cloud architecture basics, and project details.) Tj T*
+(They wanted to see enthusiasm and alignment with Microsoft's growth mindset.) Tj T*
+ET
+endstream
+endobj
+trailer
+<< /Size 6 /Root 1 0 R >>
+%%EOF

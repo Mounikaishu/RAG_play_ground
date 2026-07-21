@@ -41,7 +41,6 @@ def load_knowledge_base():
     start_time = time.time()
 
 
-
     # Step 1: Ensure directories
     ensure_data_directories()
 

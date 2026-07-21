@@ -1,0 +1,44 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 850 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 750 Td
+(Company: Amazon) Tj T*
+(Role: SDE-1) Tj T*
+(Difficulty: Medium) Tj T*
+(Round: All Rounds) Tj T*
+() Tj T*
+(Overall Experience:) Tj T*
+(The process started with an Online Assessment containing 2 coding questions on HackerRank.) Tj T*
+(First question was sliding window maximum, and the second was a shortest path in a grid.) Tj T*
+() Tj T*
+(Technical Round 1: Design a parking lot system with OOP principles. Make sure to define) Tj T*
+(clear class relationships and use appropriate design patterns \(like Strategy and Singleton\).) Tj T*
+(Also asked to implement an LRU cache using a doubly linked list and a hash map from scratch.) Tj T*
+() Tj T*
+(Technical Round 2: System design of a URL shortener like bit.ly. Focus on scalability,) Tj T*
+(hashing collision resolution, database selection \(NoSQL vs SQL\), and caching strategies.) Tj T*
+() Tj T*
+(Bar Raiser: Deep dive into past internship projects, asked about architectural trade-offs) Tj T*
+(and Amazon's Leadership Principles.) Tj T*
+ET
+endstream
+endobj
+trailer
+<< /Size 6 /Root 1 0 R >>
+%%EOF

@@ -310,6 +310,7 @@ def ingest_placement_material(file_info: FileInfo) -> dict:
 PIPELINE_MAP = {
     "alumni_resumes": ingest_alumni_resume,
     "interview_experiences": ingest_interview_experience,
+    "interview_experiencee": ingest_interview_experience,
     "placement_materials": ingest_placement_material,
 }
 

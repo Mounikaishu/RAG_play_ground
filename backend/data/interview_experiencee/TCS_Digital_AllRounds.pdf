@@ -1,0 +1,43 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 800 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 750 Td
+(Company: TCS) Tj T*
+(Role: Digital) Tj T*
+(Difficulty: Easy) Tj T*
+(Round: All Rounds) Tj T*
+() Tj T*
+(Overall Experience:) Tj T*
+(Aptitude Round: 30 quantitative questions, 20 verbal, 10 logical reasoning in 90 minutes.) Tj T*
+() Tj T*
+(Coding Round: 2 easy-medium problems - array rotation and string compression.) Tj T*
+() Tj T*
+(Technical/HR Interview: Basic questions about OOP concepts) Tj T*
+(\(polymorphism, inheritance, encapsulation\), DBMS normalization forms \(1NF, 2NF, 3NF\),) Tj T*
+(and final year project discussion.) Tj T*
+() Tj T*
+(Tips: TCS focuses on aptitude and fundamentals.) Tj T*
+(Practice quantitative aptitude daily.) Tj T*
+(InfyTQ/TCS NQT certification gives a significant edge during shortlisting.) Tj T*
+ET
+endstream
+endobj
+trailer
+<< /Size 6 /Root 1 0 R >>
+%%EOF

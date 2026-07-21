@@ -1,0 +1,44 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 750 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 750 Td
+(Company: Google) Tj T*
+(Role: Software Engineer) Tj T*
+(Difficulty: Hard) Tj T*
+(Round: Technical Round) Tj T*
+() Tj T*
+(Overall Experience:) Tj T*
+(The interview process was highly structured and consisted of three technical rounds.) Tj T*
+() Tj T*
+(Round 1: DSA coding. Given a 2D matrix, find the number of islands using BFS/DFS.) Tj T*
+(Follow-up: how to handle the streaming case where elements are added dynamically.) Tj T*
+(I used a Disjoint Set Union \(DSU\) data structure to optimize the follow-up, which the interviewer appreciated.) Tj T*
+() Tj T*
+(Round 2: API design and rate limiting. Discussed the token bucket and sliding window algorithms,) Tj T*
+(their pros and cons, and distributed storage implications. We talked about Redis-based implementation) Tj T*
+(and race conditions using Lua scripts.) Tj T*
+() Tj T*
+(Round 3: Behavioral round. Discussed conflicts in past team projects and how they were resolved) Tj T*
+(using clear communication and data-driven decisions. Tips: Focus on Googleiness traits.) Tj T*
+ET
+endstream
+endobj
+trailer
+<< /Size 6 /Root 1 0 R >>
+%%EOF

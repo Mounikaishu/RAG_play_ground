@@ -1,0 +1,44 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 840 >>
+stream
+BT
+/F1 12 Tf
+14 TL
+50 750 Td
+(Company: Goldman Sachs) Tj T*
+(Role: Software Engineer) Tj T*
+(Difficulty: Medium) Tj T*
+(Round: All Rounds) Tj T*
+() Tj T*
+(Overall Experience:) Tj T*
+(HackerRank Test: 5 MCQs on OS, DBMS, networking and 2 coding questions on DP and string manipulation.) Tj T*
+() Tj T*
+(Technical Round 1: Deep dive into ACID properties, database isolation levels, and indexing.) Tj T*
+(Design a stock trading platform order book.) Tj T*
+(Used binary search trees to represent price levels efficiently.) Tj T*
+() Tj T*
+(Technical Round 2: Implement merge sort.) Tj T*
+(Detailed discussion on multithreading in Java, garbage collection mechanisms,) Tj T*
+(and synchronization primitives like semaphores and mutexes.) Tj T*
+() Tj T*
+(Tips: Goldman Sachs tests CS fundamentals deeply.) Tj T*
+(Revise OS, DBMS, and networking concepts thoroughly before the interview.) Tj T*
+ET
+endstream
+endobj
+trailer
+<< /Size 6 /Root 1 0 R >>
+%%EOF
