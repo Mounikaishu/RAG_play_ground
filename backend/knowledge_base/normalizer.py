@@ -42,6 +42,13 @@ COMPANY_CANONICAL_MAP = {
     r"\binfosys\b": "Infosys",
     r"\bwipro\b": "Wipro",
     r"\baccenture\b": "Accenture",
+    r"\basml\b": "ASML",
+    r"\bcisco\b": "Cisco",
+    r"\bhoneywell\b": "Honeywell",
+    r"\bqualcomm\b": "Qualcomm",
+    r"\bschneider\s*electric\b": "Schneider Electric",
+    r"\btesla\b": "Tesla",
+    r"\brazorpay\b": "Razorpay",
 }
 
 ROLE_CANONICAL_MAP = {
@@ -75,7 +82,7 @@ def normalize_company(raw_name: str) -> str:
 
     cleaned = raw_name.strip()
     # Strip legal suffixes
-    cleaned = re.sub(r"\b(Inc|LLC|Ltd|Limited|Corp|Corporation|Pvt|Private)\b\.?", "", cleaned, flags=iRE := re.IGNORECASE).strip()
+    cleaned = re.sub(r"\b(Inc|LLC|Ltd|Limited|Corp|Corporation|Pvt|Private)\b\.?", "", cleaned, flags=re.IGNORECASE).strip()
 
     for pattern, canonical in COMPANY_CANONICAL_MAP.items():
         if re.search(pattern, cleaned, re.IGNORECASE):

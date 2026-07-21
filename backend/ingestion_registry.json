@@ -1,388 +1,626 @@
 {
   "files": {
-    "1195f3faea54f5749ed573c449f12dc58c3ecb4da32385eac8703d753e30777b": {
-      "filename": "alumni_10_anjali_patel.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:22:44.054055",
-      "metadata_summary": {
-        "student_name": "Anjali Patel",
-        "company": "Salesforce",
-        "role": "Associate Member of Technical Staff (AMTS)"
-      }
-    },
-    "17ed215e0cdef3dafacf9a74c35d1e95f20c9c8b597a60098b99b5bf97ad649f": {
-      "filename": "alumni_11_rohan_deshmukh.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:22:47.553316",
-      "metadata_summary": {
-        "student_name": "Rohan Deshmukh",
-        "company": "Cisco",
-        "role": "Technical Consulting Engineer (Networking)"
-      }
-    },
-    "259bfd88f0c0668b4a4420daabe4645846174f79c1f0aecd235dae83776d12b9": {
-      "filename": "alumni_12_pranav_nair.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:22:50.288163",
-      "metadata_summary": {
-        "student_name": "Pranav Nair",
-        "company": "Honeywell",
-        "role": "Systems Engineer"
-      }
-    },
-    "66d90fb642ae8f841a8c912c6e23133e8b2ab6bb40bfefb0f6d6b26eacd8adcd": {
-      "filename": "alumni_13_nisha_roy.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:22:53.089102",
-      "metadata_summary": {
-        "student_name": "Nisha Roy",
-        "company": "Uber",
-        "role": "Software Engineer I"
-      }
-    },
-    "2ca2cd223ecd514ae6091cfda5f1ed184eadf6da8fcafda3958df4cc7beacda1": {
-      "filename": "alumni_14_siddharth_jain.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:22:56.043323",
-      "metadata_summary": {
-        "student_name": "Siddharth Jain",
-        "company": "Nvidia",
-        "role": "Systems Software Engineer (GPU Programming)"
-      }
-    },
-    "604ff8aa0c0838967583123ab1baebb33c383919a52fcfdac314223c7c005155": {
-      "filename": "alumni_15_divya_aggarwal.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:00.010216",
-      "metadata_summary": {
-        "student_name": "Divya Aggarwal",
-        "company": "Meta",
-        "role": "Research Engineer (AI Infrastructure)"
-      }
-    },
-    "27ef4e198d889ad18bf8448acbaf379a85fdb22d12f5f4fc9068c9b285bd3ec9": {
-      "filename": "alumni_16_karan_singhal.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:02.598007",
-      "metadata_summary": {
-        "student_name": "Karan Singhal",
-        "company": "Schneider Electric",
-        "role": "Graduate Engineer Trainee"
-      }
-    },
-    "5dd376a14ed67047653ab8800e904c188bcadd2845a87af13657491a8af88c0b": {
-      "filename": "alumni_17_shruti_gupta.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:05.183441",
-      "metadata_summary": {
-        "student_name": "Shruti Gupta",
-        "company": "JPMorgan Chase",
-        "role": "Software Engineer (SGP)"
-      }
-    },
-    "7bda566a4680a77c6a770a2f403512b4700e3f602d48e2327b46d497a022ab8a": {
-      "filename": "alumni_18_rithvik_sen.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:07.976231",
-      "metadata_summary": {
-        "student_name": "Rithvik Sen",
-        "company": "Atlassian",
-        "role": "SDE I (Jira Software)"
-      }
-    },
-    "5e7e8a083524924732b0388ab029a7a0ec6d755936f8593fa8e356e419b0cf26": {
-      "filename": "alumni_19_kavya_menon.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:10.624074",
-      "metadata_summary": {
-        "student_name": "Kavya Menon",
-        "company": "Morgan Stanley",
-        "role": "Technology Analyst"
-      }
-    },
-    "de6849fd51bf1fc18557ec8c0a7a9fb9ef4921de480b0337822ef5e67de3778f": {
-      "filename": "alumni_1_aarav_sharma.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:13.757546",
-      "metadata_summary": {
-        "student_name": "Aarav Sharma",
-        "company": "Google",
-        "role": "Software Engineer (SDE I)"
-      }
-    },
-    "b08a4e40a9eac0bcd1309db64473c5f7efcfa36a73b59d3184d0b38f67ab9a07": {
-      "filename": "alumni_20_aditya_joshi.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:16.969063",
-      "metadata_summary": {
-        "student_name": "Aditya Joshi",
-        "company": "ASML",
-        "role": "Lithography Engineer"
-      }
-    },
-    "bf988626a8918b8a6c59369da87f4fc368ff168c49ce9fd4a04502af667e4433": {
-      "filename": "alumni_2_ananya_reddy.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:19.712135",
-      "metadata_summary": {
-        "student_name": "Ananya Reddy",
-        "company": "Intel",
-        "role": "Hardware Validation Engineer"
-      }
-    },
-    "359bea7c0a200a60062e6a70506c9cfca1f95b4870c9aed8511d9e77ddb27570": {
-      "filename": "alumni_3_vikram_malhotra.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:22.480030",
-      "metadata_summary": {
-        "student_name": "Vikram Malhotra",
-        "company": "Microsoft",
-        "role": "SDE I (Developer Tools)"
-      }
-    },
-    "8eb6f585abd115901356aa460b5fea0090443a13e590bb88a7381043b6a1a02d": {
-      "filename": "alumni_4_sneha_iyer.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:25.276265",
-      "metadata_summary": {
-        "student_name": "Sneha Iyer",
-        "company": "Goldman Sachs",
-        "role": "Technology Analyst"
-      }
-    },
-    "a53b1cfaca96345411c381239665d5168a75838f8e018536c102caa4d4440afa": {
-      "filename": "alumni_5_akash_verma.pdf",
-      "folder": "alumni_resumes",
-      "collection": "alumni_resumes_collection",
-      "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:28.229398",
-      "metadata_summary": {
-        "student_name": "Akash Verma",
-        "company": "Amazon",
-        "role": "Software Development Engineer (SDE I)"
-      }
-    },
     "b24cbfa13f862f5fc79e46d03458c2038ca410f06d854d5058b8f2ac48d190e0": {
+      "checksum": "b24cbfa13f862f5fc79e46d03458c2038ca410f06d854d5058b8f2ac48d190e0",
       "filename": "alumni_6_meera_krishnan.pdf",
       "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
       "collection": "alumni_resumes_collection",
       "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:31.150434",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.677,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:05.605413",
       "metadata_summary": {
         "student_name": "Meera Krishnan",
         "company": "Adobe",
-        "role": "Machine Learning Engineer"
+        "role": "AI/ML Engineer"
       }
     },
     "82d5cffd34f3d97e5e664679a91567515759e0e67795a323c2c201ea349ce43b": {
+      "checksum": "82d5cffd34f3d97e5e664679a91567515759e0e67795a323c2c201ea349ce43b",
       "filename": "alumni_7_arjun_rao.pdf",
       "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
       "collection": "alumni_resumes_collection",
       "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:33.857139",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.865,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:11.168673",
       "metadata_summary": {
         "student_name": "Arjun Rao",
         "company": "Tesla",
-        "role": "CAD Engineer"
+        "role": "Cad Engineer"
       }
     },
     "b462551d58595c183decb2f4721e63f4005c2395f071e11b7a16bef2bd391541": {
+      "checksum": "b462551d58595c183decb2f4721e63f4005c2395f071e11b7a16bef2bd391541",
       "filename": "alumni_8_kirti_sen.pdf",
       "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
       "collection": "alumni_resumes_collection",
       "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:36.682740",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.141,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:15.618531",
       "metadata_summary": {
         "student_name": "Kirti Sen",
         "company": "Oracle",
         "role": "Associate Consultant (Cloud Division)"
       }
     },
-    "2a22cd659d3a30c7e36040f493900c23cc736ddf8d9de9c13784457f616c2ceb": {
-      "filename": "alumni_9_varun_das.pdf",
+    "1195f3faea54f5749ed573c449f12dc58c3ecb4da32385eac8703d753e30777b": {
+      "checksum": "1195f3faea54f5749ed573c449f12dc58c3ecb4da32385eac8703d753e30777b",
+      "filename": "alumni_10_anjali_patel.pdf",
       "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
       "collection": "alumni_resumes_collection",
       "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:39.568814",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 7.804,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:15.740045",
+      "metadata_summary": {
+        "student_name": "Anjali Patel",
+        "company": "Salesforce",
+        "role": "Associate Member Of Technical Staff (Amts)"
+      }
+    },
+    "17ed215e0cdef3dafacf9a74c35d1e95f20c9c8b597a60098b99b5bf97ad649f": {
+      "checksum": "17ed215e0cdef3dafacf9a74c35d1e95f20c9c8b597a60098b99b5bf97ad649f",
+      "filename": "alumni_11_rohan_deshmukh.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.991,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:19.944909",
+      "metadata_summary": {
+        "student_name": "Rohan Deshmukh",
+        "company": "Cisco",
+        "role": "Technical Consulting Engineer (Networking)"
+      }
+    },
+    "2a22cd659d3a30c7e36040f493900c23cc736ddf8d9de9c13784457f616c2ceb": {
+      "checksum": "2a22cd659d3a30c7e36040f493900c23cc736ddf8d9de9c13784457f616c2ceb",
+      "filename": "alumni_9_varun_das.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.556,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:20.927409",
       "metadata_summary": {
         "student_name": "Varun Das",
         "company": "Qualcomm",
-        "role": "Embedded Software Engineer"
+        "role": "Software Engineer"
+      }
+    },
+    "259bfd88f0c0668b4a4420daabe4645846174f79c1f0aecd235dae83776d12b9": {
+      "checksum": "259bfd88f0c0668b4a4420daabe4645846174f79c1f0aecd235dae83776d12b9",
+      "filename": "alumni_12_pranav_nair.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.905,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:23.786013",
+      "metadata_summary": {
+        "student_name": "Pranav Nair",
+        "company": "Honeywell",
+        "role": "Systems Engineer"
       }
     },
     "00797a8ca6b5e4ba05f3a1b1d9ed19f9d91ee1ea604fb97dbc3d21f3b75c50e3": {
+      "checksum": "00797a8ca6b5e4ba05f3a1b1d9ed19f9d91ee1ea604fb97dbc3d21f3b75c50e3",
       "filename": "Roshini_RESUME.pdf",
       "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
       "collection": "alumni_resumes_collection",
       "chunk_count": 6,
-      "ingested_at": "2026-07-21T09:23:42.433514",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.239,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:25.796323",
       "metadata_summary": {
-        "student_name": "Roshini Ruttala",
-        "company": "Not Specified",
-        "role": "Not Specified"
+        "student_name": null,
+        "company": "Unknown",
+        "role": "Software Engineer"
+      }
+    },
+    "66d90fb642ae8f841a8c912c6e23133e8b2ab6bb40bfefb0f6d6b26eacd8adcd": {
+      "checksum": "66d90fb642ae8f841a8c912c6e23133e8b2ab6bb40bfefb0f6d6b26eacd8adcd",
+      "filename": "alumni_13_nisha_roy.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.607,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:27.206052",
+      "metadata_summary": {
+        "student_name": "Nisha Roy",
+        "company": "Uber",
+        "role": "Software Engineer"
       }
     },
     "0035354b98ec2053c49e915d92c2fbe5e12ebbaa8df3ddb741c0eed639f9762d": {
+      "checksum": "0035354b98ec2053c49e915d92c2fbe5e12ebbaa8df3ddb741c0eed639f9762d",
       "filename": "Amazon_SDE1_AllRounds.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 2,
-      "ingested_at": "2026-07-21T09:23:43.797397",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.591,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:30.727490",
       "metadata_summary": {
         "company": "Amazon",
-        "role": "SDE-1",
-        "round": "all_rounds",
+        "role": "Software Engineer",
         "difficulty": "Medium"
+      }
+    },
+    "2ca2cd223ecd514ae6091cfda5f1ed184eadf6da8fcafda3958df4cc7beacda1": {
+      "checksum": "2ca2cd223ecd514ae6091cfda5f1ed184eadf6da8fcafda3958df4cc7beacda1",
+      "filename": "alumni_14_siddharth_jain.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.835,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:31.286477",
+      "metadata_summary": {
+        "student_name": "Siddharth Jain",
+        "company": "NVIDIA",
+        "role": "Software Engineer"
+      }
+    },
+    "604ff8aa0c0838967583123ab1baebb33c383919a52fcfdac314223c7c005155": {
+      "checksum": "604ff8aa0c0838967583123ab1baebb33c383919a52fcfdac314223c7c005155",
+      "filename": "alumni_15_divya_aggarwal.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.885,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:35.273579",
+      "metadata_summary": {
+        "student_name": "Divya Aggarwal",
+        "company": "Meta",
+        "role": "Research Engineer (Ai Infrastructure)"
       }
     },
     "4a1cb056044e7370c7b79f88758f097c26c4b3962ff3e4a526ee364083e43ec8": {
+      "checksum": "4a1cb056044e7370c7b79f88758f097c26c4b3962ff3e4a526ee364083e43ec8",
       "filename": "Deloitte_DataAnalyst_AllRounds.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 1,
-      "ingested_at": "2026-07-21T09:23:44.860820",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.202,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:35.578268",
       "metadata_summary": {
-        "company": "Deloitte Role: Data Analyst Difficulty: Medium Round: All Rounds",
-        "role": "Data Analyst Difficulty: Medium Round: All Rounds",
-        "round": "technical",
-        "difficulty": "Medium Round: All Rounds"
+        "company": "Deloitte",
+        "role": "Data Analyst",
+        "difficulty": "Medium"
+      }
+    },
+    "27ef4e198d889ad18bf8448acbaf379a85fdb22d12f5f4fc9068c9b285bd3ec9": {
+      "checksum": "27ef4e198d889ad18bf8448acbaf379a85fdb22d12f5f4fc9068c9b285bd3ec9",
+      "filename": "alumni_16_karan_singhal.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.742,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:39.041851",
+      "metadata_summary": {
+        "student_name": "Karan Singhal",
+        "company": "Schneider Electric",
+        "role": "Graduate Engineer Trainee"
       }
     },
     "3f1b73e315baaa5d3db3c8b695e7d248f7586e851320e07b32f4f707996d66a0": {
+      "checksum": "3f1b73e315baaa5d3db3c8b695e7d248f7586e851320e07b32f4f707996d66a0",
       "filename": "Flipkart_SDE1_AllRounds.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 1,
-      "ingested_at": "2026-07-21T09:23:45.937704",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.685,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:39.936071",
       "metadata_summary": {
         "company": "Flipkart",
-        "role": "SDE-1",
-        "round": "technical, behavioral",
+        "role": "Software Engineer",
         "difficulty": "Hard"
+      }
+    },
+    "5dd376a14ed67047653ab8800e904c188bcadd2845a87af13657491a8af88c0b": {
+      "checksum": "5dd376a14ed67047653ab8800e904c188bcadd2845a87af13657491a8af88c0b",
+      "filename": "alumni_17_shruti_gupta.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.906,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:42.973492",
+      "metadata_summary": {
+        "student_name": "Shruti Gupta",
+        "company": "JPMorgan Chase",
+        "role": "Software Engineer"
       }
     },
     "5430a79f47643abb2b00e4844238c4288ecefe04be9fcd0734d61bac98a9d597": {
+      "checksum": "5430a79f47643abb2b00e4844238c4288ecefe04be9fcd0734d61bac98a9d597",
       "filename": "GoldmanSachs_SWE_AllRounds.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 1,
-      "ingested_at": "2026-07-21T09:23:47.161305",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.791,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:44.358355",
       "metadata_summary": {
         "company": "Goldman Sachs",
         "role": "Software Engineer",
-        "round": "online_assessment, technical",
         "difficulty": "Medium"
+      }
+    },
+    "7bda566a4680a77c6a770a2f403512b4700e3f602d48e2327b46d497a022ab8a": {
+      "checksum": "7bda566a4680a77c6a770a2f403512b4700e3f602d48e2327b46d497a022ab8a",
+      "filename": "alumni_18_rithvik_sen.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.881,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:46.749020",
+      "metadata_summary": {
+        "student_name": "Rithvik Sen",
+        "company": "Atlassian",
+        "role": "Software Engineer"
       }
     },
     "9027142bce7012bf8d536b8bb8721fba747e689f33480da2e43215e548923793": {
+      "checksum": "9027142bce7012bf8d536b8bb8721fba747e689f33480da2e43215e548923793",
       "filename": "Google_SWE_Technical.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 2,
-      "ingested_at": "2026-07-21T09:23:48.297134",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.265,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:49.033196",
       "metadata_summary": {
         "company": "Google",
         "role": "Software Engineer",
-        "round": "technical, behavioral",
         "difficulty": "Hard"
+      }
+    },
+    "5e7e8a083524924732b0388ab029a7a0ec6d755936f8593fa8e356e419b0cf26": {
+      "checksum": "5e7e8a083524924732b0388ab029a7a0ec6d755936f8593fa8e356e419b0cf26",
+      "filename": "alumni_19_kavya_menon.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.748,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:50.396383",
+      "metadata_summary": {
+        "student_name": "Kavya Menon",
+        "company": "Morgan Stanley",
+        "role": "Technology Analyst"
       }
     },
     "95410f414021fecde1acea102de5f43949dfd50d1f6e14b6c71fc02f3b8b93e8": {
+      "checksum": "95410f414021fecde1acea102de5f43949dfd50d1f6e14b6c71fc02f3b8b93e8",
       "filename": "Infosys_SystemsEngineer_AllRounds.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 1,
-      "ingested_at": "2026-07-21T09:23:49.300520",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.483,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:53.895035",
       "metadata_summary": {
-        "company": "Infosys Role: Systems Engineer Difficulty: Easy Round: All Rounds",
-        "role": "Systems Engineer Difficulty: Easy Round: All Rounds",
-        "round": "technical, behavioral",
-        "difficulty": "Easy Round: All Rounds"
+        "company": "Infosys",
+        "role": "Systems Engineer",
+        "difficulty": "Easy"
+      }
+    },
+    "de6849fd51bf1fc18557ec8c0a7a9fb9ef4921de480b0337822ef5e67de3778f": {
+      "checksum": "de6849fd51bf1fc18557ec8c0a7a9fb9ef4921de480b0337822ef5e67de3778f",
+      "filename": "alumni_1_aarav_sharma.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.01,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:54.641885",
+      "metadata_summary": {
+        "student_name": "Aarav Sharma",
+        "company": "Google",
+        "role": "Software Engineer"
+      }
+    },
+    "b08a4e40a9eac0bcd1309db64473c5f7efcfa36a73b59d3184d0b38f67ab9a07": {
+      "checksum": "b08a4e40a9eac0bcd1309db64473c5f7efcfa36a73b59d3184d0b38f67ab9a07",
+      "filename": "alumni_20_aditya_joshi.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.979,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:58.753390",
+      "metadata_summary": {
+        "student_name": "Aditya Joshi",
+        "company": "ASML",
+        "role": "Lithography Engineer"
       }
     },
     "8da4f4ab046d4a1ea2a761dc9dcad201893694a53d6cc54aa3886a2a358141b1": {
+      "checksum": "8da4f4ab046d4a1ea2a761dc9dcad201893694a53d6cc54aa3886a2a358141b1",
       "filename": "Microsoft_SDEIntern_AllRounds.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 1,
-      "ingested_at": "2026-07-21T09:23:50.393552",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.367,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:12:58.872646",
       "metadata_summary": {
         "company": "Microsoft",
-        "role": "SDE Intern",
-        "round": "technical, behavioral",
+        "role": "Sdeintern",
         "difficulty": "Medium"
+      }
+    },
+    "bf988626a8918b8a6c59369da87f4fc368ff168c49ce9fd4a04502af667e4433": {
+      "checksum": "bf988626a8918b8a6c59369da87f4fc368ff168c49ce9fd4a04502af667e4433",
+      "filename": "alumni_2_ananya_reddy.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.037,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:13:02.948992",
+      "metadata_summary": {
+        "student_name": "Ananya Reddy",
+        "company": "Intel",
+        "role": "Hardware Validation Engineer"
       }
     },
     "27ec5fd19b458f6d197664841ecd36999719b1e935a4f632855bf0849bced40d": {
+      "checksum": "27ec5fd19b458f6d197664841ecd36999719b1e935a4f632855bf0849bced40d",
       "filename": "NVIDIA_AIEngineer_Technical.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 2,
-      "ingested_at": "2026-07-21T09:23:51.660053",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.061,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:13:03.689374",
       "metadata_summary": {
         "company": "NVIDIA",
-        "role": "AI Engineer",
-        "round": "technical",
+        "role": "AI/ML Engineer",
         "difficulty": "Hard"
       }
     },
+    "359bea7c0a200a60062e6a70506c9cfca1f95b4870c9aed8511d9e77ddb27570": {
+      "checksum": "359bea7c0a200a60062e6a70506c9cfca1f95b4870c9aed8511d9e77ddb27570",
+      "filename": "alumni_3_vikram_malhotra.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.002,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:13:06.982265",
+      "metadata_summary": {
+        "student_name": "Vikram Malhotra",
+        "company": "Microsoft",
+        "role": "Software Engineer"
+      }
+    },
     "63fdc6b7f54052fc4f9f9ae685787a20e83d168e7b1900fb12265f6c0f9116f6": {
+      "checksum": "63fdc6b7f54052fc4f9f9ae685787a20e83d168e7b1900fb12265f6c0f9116f6",
       "filename": "Razorpay_FrontendEngineer_Technical.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 2,
-      "ingested_at": "2026-07-21T09:23:52.803550",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.848,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:13:08.223588",
       "metadata_summary": {
         "company": "Razorpay",
         "role": "Frontend Engineer",
-        "round": "technical",
         "difficulty": "Medium"
       }
     },
+    "8eb6f585abd115901356aa460b5fea0090443a13e590bb88a7381043b6a1a02d": {
+      "checksum": "8eb6f585abd115901356aa460b5fea0090443a13e590bb88a7381043b6a1a02d",
+      "filename": "alumni_4_sneha_iyer.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 3.888,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:13:11.700478",
+      "metadata_summary": {
+        "student_name": "Sneha Iyer",
+        "company": "Goldman Sachs",
+        "role": "Technology Analyst"
+      }
+    },
     "29366c271a11b5663440b57b258f874f30e7daefe9a4207d6615e88695492f1a": {
+      "checksum": "29366c271a11b5663440b57b258f874f30e7daefe9a4207d6615e88695492f1a",
       "filename": "TCS_Digital_AllRounds.pdf",
-      "folder": "interview_experiencee",
+      "folder": "interview_experiences",
+      "document_type": "Interview Experience",
       "collection": "interview_experiences",
       "chunk_count": 1,
-      "ingested_at": "2026-07-21T09:23:53.878528",
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.964,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:13:12.759844",
       "metadata_summary": {
-        "company": "TCS Role: Digital Difficulty: Easy Round: All Rounds",
-        "role": "Digital Difficulty: Easy Round: All Rounds",
-        "round": "technical",
-        "difficulty": "Easy Round: All Rounds"
+        "company": "TCS",
+        "role": "Digital",
+        "difficulty": "Easy"
+      }
+    },
+    "a53b1cfaca96345411c381239665d5168a75838f8e018536c102caa4d4440afa": {
+      "checksum": "a53b1cfaca96345411c381239665d5168a75838f8e018536c102caa4d4440afa",
+      "filename": "alumni_5_akash_verma.pdf",
+      "folder": "alumni_resumes",
+      "document_type": "Alumni Resume",
+      "collection": "alumni_resumes_collection",
+      "chunk_count": 6,
+      "pages": 1,
+      "parser_version": "docling-v1.0",
+      "chunking_version": "semantic-v1.0",
+      "embedding_model": "bge-small-en-v1.5",
+      "ingestion_duration_sec": 2.821,
+      "processing_status": "success",
+      "ingested_at": "2026-07-21T11:13:15.477691",
+      "metadata_summary": {
+        "student_name": "Akash Verma",
+        "company": "Amazon",
+        "role": "Software Engineer"
       }
     }
   },
-  "last_run": "2026-07-21T09:23:53.878537",
-  "version": "1.0"
+  "last_run": "2026-07-21T11:13:15.477698",
+  "version": "2.0"
 }

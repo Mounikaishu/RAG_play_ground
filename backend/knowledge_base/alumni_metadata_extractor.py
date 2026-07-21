@@ -225,9 +225,9 @@ JSON Schema:
 
 def _regex_interview_fallback(text: str) -> Dict[str, Any]:
     """Regex fallback for interview experience metadata."""
-    comp_match = re.search(r"Company[:\s]+(.+)", text, re.I)
-    role_match = re.search(r"Role[:\s]+(.+)", text, re.I)
-    diff_match = re.search(r"Difficulty[:\s]+(.+)", text, re.I)
+    comp_match = re.search(r"Company[:\s]+(.*?)(?=\s+(?:Role|Difficulty|Round|Job Type|Eligibility|Package):|\n|$)", text, re.I)
+    role_match = re.search(r"Role[:\s]+(.*?)(?=\s+(?:Company|Difficulty|Round|Job Type|Eligibility|Package):|\n|$)", text, re.I)
+    diff_match = re.search(r"Difficulty[:\s]+(.*?)(?=\s+(?:Company|Role|Round|Job Type|Eligibility|Package):|\n|$)", text, re.I)
 
     company = comp_match.group(1).strip() if comp_match else "Unknown"
     role = role_match.group(1).strip() if role_match else "Software Engineer"

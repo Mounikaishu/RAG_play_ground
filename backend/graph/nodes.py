@@ -1,9 +1,19 @@
 from graph.state import PlacementState
+# Legacy direct-collection helpers (kept for search_kb / search_student_resumes used below)
 from knowledge_base.collections import (
     search_kb, search_student_resumes,
     search_alumni_resumes, search_placement_materials,
 )
 from llm import llm_call
+
+# Phase 2: Unified Retrieval Engine & Context Builder
+from knowledge_base.retrieval import (
+    retrieve,
+    retrieve_resumes,
+    retrieve_interview_experiences,
+    retrieve_placement_materials as kb_retrieve_placement,
+)
+from knowledge_base.context_builder import build_context
 
 # Import 6-stage RAG pipeline functions from the shared RAG_pipeline (rag_core)
 from rag_core.stages.rewrite import rewrite_query
@@ -16,89 +26,85 @@ from rag_core.stages.refine import refine_chunks
 # ──────────────────────────────────────────────────────────
 
 def retrieve_all_node(state: PlacementState) -> PlacementState:
-    """Retrieve relevant chunks from all vector store collections at once, using the 6-stage RAG pipeline."""
+    """
+    Unified multi-collection retrieval using the Phase 2 Retrieval Engine.
+    Delegates to knowledge_base/retrieval.py for all ChromaDB operations.
+    Still applies query rewriting, reranking, and refinement downstream.
+    """
     query = state["question"]
     user_id = state.get("user_id", "")
     career_goal = state.get("career_goal", "")
     target_company = state.get("target_company", "")
     target_role = state.get("target_role", "")
 
-    # Helper function to convert search results to RAG chunks format
-    def to_rag_chunks(results: list) -> list[dict]:
-        chunks = []
-        for r in results:
-            if isinstance(r, dict):
-                text = r.get("document") or r.get("text") or r.get("page_content") or str(r)
-                dist = r.get("distance", 0.5)
-                meta = r.get("metadata", {})
-            elif hasattr(r, "page_content"):
-                text = r.page_content
-                dist = getattr(r, "distance", 0.5)
-                meta = getattr(r, "metadata", {})
-            else:
-                text = str(r)
-                dist = 0.5
-                meta = {}
-            chunks.append({
-                "text": text,
-                "distance": dist,
-                "metadata": meta
-            })
-        return chunks
-
-    # Stage 1: Query Rewriting
+    # ── Stage 1: Query Rewriting ──────────────────────────────────────────────
     context_hint = f"career goal is {career_goal}, target company is {target_company}, target role is {target_role}"
     rewritten_query = rewrite_query(query, context_hint=context_hint)
     print(f"\n[RAG DEBUG] Original Query: {query}")
     print(f"[RAG DEBUG] Rewritten Query: {rewritten_query}")
 
-    # Stage 2: Retrieve from all collections
-    # 2.1 Institutional Knowledge Base
-    kb_results = search_kb(rewritten_query, "institutional_kb", k=8)
-    kb_chunks = to_rag_chunks(kb_results)
+    def _result_to_rag_chunk(r) -> dict:
+        """Convert RetrievalResult or legacy dict to RAG-compatible chunk dict."""
+        if hasattr(r, "content"):
+            return {"text": r.content, "distance": r.distance, "metadata": r.metadata}
+        elif isinstance(r, dict):
+            text = r.get("document") or r.get("text") or r.get("page_content") or str(r)
+            return {"text": text, "distance": r.get("distance", 0.5), "metadata": r.get("metadata", {})}
+        return {"text": str(r), "distance": 0.5, "metadata": {}}
 
-    # 2.2 Student's Own Resume
+    # ── Stage 2: Retrieve from all collections via Retrieval Engine ───────────
+    # 2.1 Institutional Knowledge Base (direct search_kb — not in retrieval engine scope)
+    kb_results = search_kb(rewritten_query, "institutional_kb", k=8)
+    kb_chunks = [_result_to_rag_chunk(r) for r in kb_results]
+
+    # 2.2 Student's Own Resume (student-specific, uses roll_no filter)
     resume_chunks = []
     if user_id:
         try:
             from services.rag_adapter import ResumeRagAdapter
             adapter = ResumeRagAdapter()
             resume_results = adapter.get_resume_context(user_id, query=rewritten_query)
-            resume_chunks = to_rag_chunks(resume_results)
+            resume_chunks = [_result_to_rag_chunk(r) for r in resume_results]
         except Exception as e:
             print(f"⚠️ Failed to get resume context via adapter: {e}")
 
-    # 2.3 Alumni Resumes (Guidance)
-    alumni_results = search_alumni_resumes(rewritten_query, k=8, company=target_company if target_company else None)
-    alumni_chunks = to_rag_chunks(alumni_results)
+    # 2.3 Alumni Resumes — via Retrieval Engine
+    alumni_response = retrieve_resumes(
+        query=rewritten_query, top_k=8,
+        company=target_company if target_company else None,
+    )
+    alumni_chunks = [_result_to_rag_chunk(r) for r in alumni_response.results]
 
-    # 2.4 Interview Experiences
-    interview_results = search_kb(rewritten_query, "interview_experiences", k=8, where={"company": target_company} if target_company else None)
-    interview_chunks = to_rag_chunks(interview_results)
+    # 2.4 Interview Experiences — via Retrieval Engine
+    interview_response = retrieve_interview_experiences(
+        query=rewritten_query, top_k=8,
+        company=target_company if target_company else None,
+    )
+    interview_chunks = [_result_to_rag_chunk(r) for r in interview_response.results]
 
-    # 2.5 Placement Materials
-    materials_results = search_placement_materials(rewritten_query, k=8)
-    materials_chunks = to_rag_chunks(materials_results)
+    # 2.5 Placement Materials — via Retrieval Engine
+    materials_response = kb_retrieve_placement(query=rewritten_query, top_k=8)
+    materials_chunks = [_result_to_rag_chunk(r) for r in materials_response.results]
 
-    print(f"[RAG DEBUG] Retrieved Chunks count: KB={len(kb_chunks)}, Resume={len(resume_chunks)}, Alumni={len(alumni_chunks)}, Interviews={len(interview_chunks)}, Placement={len(materials_chunks)}")
+    print(f"[RAG DEBUG] Retrieved Chunks: KB={len(kb_chunks)}, Resume={len(resume_chunks)}, Alumni={len(alumni_chunks)}, Interviews={len(interview_chunks)}, Placement={len(materials_chunks)}")
 
-    # Stage 3: Reranking
+    # ── Stage 3: Reranking ────────────────────────────────────────────────────
     reranked_kb = rerank_chunks(rewritten_query, kb_chunks)
     reranked_resume = rerank_chunks(rewritten_query, resume_chunks)
     reranked_alumni = rerank_chunks(rewritten_query, alumni_chunks)
     reranked_interviews = rerank_chunks(rewritten_query, interview_chunks)
     reranked_placement = rerank_chunks(rewritten_query, materials_chunks)
 
-    print(f"[RAG DEBUG] Reranked Chunks count: KB={len(reranked_kb)}, Resume={len(reranked_resume)}, Alumni={len(reranked_alumni)}, Interviews={len(reranked_interviews)}, Placement={len(reranked_placement)}")
+    print(f"[RAG DEBUG] Reranked: KB={len(reranked_kb)}, Resume={len(reranked_resume)}, Alumni={len(reranked_alumni)}, Interviews={len(reranked_interviews)}, Placement={len(reranked_placement)}")
 
-    # Stage 4: Refinement
+    # ── Stage 4: Refinement ───────────────────────────────────────────────────
     refined_kb = refine_chunks(reranked_kb, top_k=4)
     refined_resume = refine_chunks(reranked_resume, top_k=4)
     refined_alumni = refine_chunks(reranked_alumni, top_k=4)
     refined_interviews = refine_chunks(reranked_interviews, top_k=4)
     refined_placement = refine_chunks(reranked_placement, top_k=4)
 
-    print(f"[RAG DEBUG] Refined Context: KB chunks={len(refined_kb)}, Resume chunks={len(refined_resume)}, Alumni chunks={len(refined_alumni)}, Interviews chunks={len(refined_interviews)}, Placement chunks={len(refined_placement)}")
+    print(f"[RAG DEBUG] Refined Context: KB={len(refined_kb)}, Resume={len(refined_resume)}, Alumni={len(refined_alumni)}, Interviews={len(refined_interviews)}, Placement={len(refined_placement)}")
 
     context_kb = "\n\n".join(refined_kb) if refined_kb else ""
     context_resume = "\n\n".join(refined_resume) if refined_resume else "No resume uploaded yet."
@@ -106,7 +112,6 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
     context_interviews = "\n\n".join(refined_interviews) if refined_interviews else ""
     context_placement = "\n\n".join(refined_placement) if refined_placement else ""
 
-    # Keep track of source files/docs
     source_docs = []
     for chunk_list in [reranked_kb, reranked_resume, reranked_alumni, reranked_interviews, reranked_placement]:
         for c in chunk_list[:3]:
@@ -179,68 +184,54 @@ def retrieve_interview_node(state: PlacementState) -> PlacementState:
 
 def retrieve_alumni_guidance_node(state: PlacementState) -> PlacementState:
     """
-    Retrieve from alumni_resumes_collection for mentor mode.
-
-    Searches alumni resumes for career paths, skills, preparation strategies,
-    and company-specific guidance from successfully placed alumni.
+    Retrieve alumni resume guidance via Phase 2 Retrieval Engine.
+    Delegates to retrieve_resumes() with optional company filter.
     """
     query = state["question"]
     career_goal = state.get("career_goal", "")
     target_company = state.get("target_company", "")
 
-    # Enrich query with career context
-    search_query = query
-    if career_goal:
-        search_query = f"{search_query} {career_goal}"
-    if target_company:
-        search_query = f"{search_query} {target_company}"
+    search_query = " ".join(filter(None, [query, career_goal, target_company]))
 
-    # Search alumni resumes with optional company filter
-    results = search_alumni_resumes(
-        search_query, k=5,
+    response = retrieve_resumes(
+        query=search_query,
+        top_k=5,
         company=target_company if target_company else None,
     )
-    context = "\n\n".join([r["document"] for r in results]) if results else ""
-
+    context = build_context(response) if response.results else ""
     return {**state, "context_alumni": context}
 
 
 def retrieve_interview_experience_node(state: PlacementState) -> PlacementState:
     """
-    Enhanced retrieval from interview_experiences for interview prep mode.
-
-    Pulls from BOTH the synthetic seed data AND file-based interview experiences
-    for comprehensive coverage.
+    Retrieve interview experiences via Phase 2 Retrieval Engine.
+    Delegates to retrieve_interview_experiences() with optional company + role filters.
     """
     company = state.get("target_company", "")
     role = state.get("target_role", "")
     query = f"{state['question']} {company} {role} interview experience".strip()
 
-    # Search interview experiences (covers both seeded + file-ingested data)
-    where = {"company": company} if company else None
-    results = search_kb(query, "interview_experiences", k=8, where=where)
-    context = "\n\n".join([r["document"] for r in results]) if results else ""
-
+    response = retrieve_interview_experiences(
+        query=query,
+        top_k=8,
+        company=company if company else None,
+        role=role if role else None,
+    )
+    context = build_context(response) if response.results else ""
     return {**state, "context_interviews": context}
 
 
 def retrieve_resume_matching_node(state: PlacementState) -> PlacementState:
     """
-    Cross-reference student resume against alumni profiles for placement search.
-
-    Retrieves from BOTH alumni_resumes (file-based) and student_resumes
-    to enable skills gap analysis and alumni-student matching.
+    Cross-reference student resume vs alumni profiles via Phase 2 Retrieval Engine.
     """
     query = state["question"]
-    user_id = state.get("user_id", "")
 
-    # Get alumni context for comparison
-    alumni_results = search_alumni_resumes(query, k=5)
-    alumni_context = "\n\n".join([r["document"] for r in alumni_results]) if alumni_results else ""
+    alumni_response = retrieve_resumes(query=query, top_k=5)
+    alumni_context = build_context(alumni_response) if alumni_response.results else ""
 
-    # Get placement materials for advice
-    material_results = search_placement_materials(query, k=3)
-    material_context = "\n\n".join([r["document"] for r in material_results]) if material_results else ""
+    materials_response = kb_retrieve_placement(query=query, top_k=3)
+    material_context = build_context(materials_response) if materials_response.results else ""
 
     return {
         **state,
@@ -251,14 +242,11 @@ def retrieve_resume_matching_node(state: PlacementState) -> PlacementState:
 
 def retrieve_placement_materials_node(state: PlacementState) -> PlacementState:
     """
-    Retrieve placement materials (guides, roadmaps, DSA resources).
-
-    Used to enrich mentor and ATS responses with actionable resources.
+    Retrieve placement guides and roadmaps via Phase 2 Retrieval Engine.
     """
     query = state["question"]
-    results = search_placement_materials(query, k=3)
-    context = "\n\n".join([r["document"] for r in results]) if results else ""
-
+    response = kb_retrieve_placement(query=query, top_k=3)
+    context = build_context(response) if response.results else ""
     return {**state, "context_placement": context}
 
 

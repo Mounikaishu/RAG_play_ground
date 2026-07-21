@@ -144,7 +144,11 @@ def load_pdf(path_or_bytes: Union[str, bytes]) -> str:
     if isinstance(path_or_bytes, bytes):
         validate_pdf_bytes(path_or_bytes)
 
-    native_text = _extract_pypdf_text(path_or_bytes)
+    try:
+        native_text = _extract_pypdf_text(path_or_bytes)
+    except Exception as exc:
+        logger.warning("pypdf native text extraction failed: %s. Falling back to fitz.", exc)
+        native_text = ""
 
     try:
         doc = _open_pdf_document(path_or_bytes)
