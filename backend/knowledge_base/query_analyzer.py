@@ -160,10 +160,8 @@ def analyze_query(query: str) -> QueryAnalysis:
     # Redundant/Missing: category/document_type is handled by collection routing.
     # We do NOT add document_type to the hard where clause to prevent zero results.
     
-    if detected_section:
-        # Use case/name variations with $in operator so the filter matches actual stored metadata
-        mapped_values = _SECTION_MAPPINGS.get(detected_section, [detected_section, detected_section.upper()])
-        conditions.append({"section_title": {"$in": mapped_values}})
+    # section_title is kept in QueryAnalysis but not added to strict ChromaDB where_filters 
+    # to allow semantic search to retrieve relevant chunks across all sections.
 
     if len(conditions) == 1:
         where_filters = conditions[0]
