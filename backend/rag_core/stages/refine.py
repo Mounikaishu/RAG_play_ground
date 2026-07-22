@@ -104,9 +104,51 @@ def refine_chunks(chunks: list[dict], top_k: int = 5, max_distance: float = 1.2)
     Returns:
         List of text strings ready to be joined as LLM context.
     """
+    import json
     chunks = filter_low_relevance(chunks, max_distance)
     chunks = remove_duplicates(chunks)
     chunks = select_top_k(chunks, top_k)
-    texts = [c["text"] for c in chunks]
+    
+    texts = []
+    for i, c in enumerate(chunks, 1):
+        meta = c.get("metadata", {})
+        text = c.get("text", "")
+        
+        # Serialize metadata into a machine-readable header
+        source_file = meta.get("source_file") or meta.get("filename") or ""
+        filename = meta.get("filename") or meta.get("source_file") or ""
+        source = meta.get("source") or meta.get("source_file") or ""
+        document_id = meta.get("document_id") or meta.get("roll_no") or meta.get("student_name") or ""
+        collection = meta.get("collection") or meta.get("category") or ""
+        section = meta.get("section") or meta.get("section_title") or ""
+        chunk_idx = meta.get("chunk_index")
+        if chunk_idx is None:
+            chunk_idx = i - 1
+            
+        meta_dict = {
+            "source_file": source_file,
+            "filename": filename,
+            "source": source,
+            "document_id": document_id,
+            "collection": collection,
+            "section": section,
+            "chunk_index": chunk_idx
+        }
+        
+        # Preserve any additional primitive metadata fields
+        for k, v in meta.items():
+            if k not in meta_dict and isinstance(v, (str, int, float, bool)):
+                meta_dict[k] = v
+                
+        header_lines = [
+            f"### Chunk {i}",
+            f"Metadata JSON: {json.dumps(meta_dict)}",
+            "---CONTENT---"
+        ]
+        
+        formatted_text = "\n".join(header_lines) + "\n" + text
+        texts.append(formatted_text)
+        
     print(f"[refine] Final context: {len(texts)} chunks selected for LLM")
     return texts
+

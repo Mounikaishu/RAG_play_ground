@@ -95,11 +95,22 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
     def _result_to_rag_chunk(r) -> dict:
         """Convert RetrievalResult or legacy dict to RAG-compatible chunk dict."""
         if hasattr(r, "content"):
-            return {"text": r.content, "distance": r.distance, "metadata": r.metadata}
+            # Enrich metadata with outer RetrievalResult fields that aren't in ChromaDB raw metadata
+            enriched_meta = dict(r.metadata or {})
+            if not enriched_meta.get("collection"):
+                enriched_meta["collection"] = r.collection or ""
+            if not enriched_meta.get("source_file"):
+                enriched_meta["source_file"] = r.source_file or ""
+            if not enriched_meta.get("section"):
+                enriched_meta["section"] = r.section or ""
+            if not enriched_meta.get("document_type"):
+                enriched_meta["document_type"] = r.document_type or ""
+            return {"text": r.content, "distance": r.distance, "metadata": enriched_meta}
         elif isinstance(r, dict):
             text = r.get("document") or r.get("text") or r.get("page_content") or str(r)
             return {"text": text, "distance": r.get("distance", 0.5), "metadata": r.get("metadata", {})}
         return {"text": str(r), "distance": 0.5, "metadata": {}}
+
 
     # ── Stage 2: Retrieve from all collections via Retrieval Engine ───────────
     # 2.1 Institutional Knowledge Base (direct search_kb — not in retrieval engine scope)

@@ -16,7 +16,7 @@ Fixes applied (Issues 1-12):
 import re
 import json
 from collections import defaultdict, Counter
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Union
 
 from llm import llm_call
 from config import MATCH_SCORE_WEIGHTS, TOP_ALUMNI_COUNT, CONFIDENCE_HIGH_THRESHOLD, CONFIDENCE_MEDIUM_THRESHOLD
@@ -779,39 +779,97 @@ def _print_alumni_validation_report(results: List[Tuple["AlumniProfile", str, bo
 # ---------------------------------------------------------------------------
 
 def _get_source_key(chunk_text: str, metadata: dict) -> str:
-    """Derive a stable key for the source document/alumnus from metadata or text."""
-    for field in ("source_file", "alumni_name", "name", "file_name", "filename"):
+    """Derive stable grouping key prioritizing original PDF source fields."""
+    for field in ("source_file", "filename", "source", "document_id"):
         val = metadata.get(field, "")
         if val and str(val).strip():
-            return str(val).strip().lower().replace(" ", "_")
-    # Fallback: use first 80 chars of unique text as a fingerprint
+            # Clean and normalize the filename/identity as grouping key
+            key = str(val).strip().lower()
+            if "/" in key or "\\" in key:
+                import os
+                key = os.path.basename(key)
+            return key
+            
+    # Fallback to first 80 chars of unique text fingerprint
     return chunk_text[:80].strip().lower()
 
 
-def _group_alumni_chunks(chunks: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def _group_alumni_chunks(chunks: List[Union[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
     """
-    Group raw retrieval chunks by source alumnus.
-    Returns {source_key: {text: str, metadata: dict}}
-    (Issue 3 — one AlumniProfile per alumnus, not one per chunk).
+    Group raw retrieval chunks by source PDF document.
+    Reconstructs metadata from serialized headers and prints chunk/group/extraction details.
     """
-    groups: Dict[str, Dict[str, Any]] = {}
-    for chunk in chunks:
+    import json
+    
+    # 1. Parse individual chunks, collect metadata, print retrieved chunk info
+    parsed_chunks = []
+    
+    for i, chunk in enumerate(chunks, 1):
+        meta = {}
+        text = ""
+        
         if isinstance(chunk, str):
-            # Plain string chunks from context_alumni field
-            key = chunk[:80].strip().lower()
-            if key not in groups:
-                groups[key] = {"text": chunk, "metadata": {}}
+            # Parse the serialized format
+            text = chunk
+            if "Metadata JSON: " in chunk:
+                try:
+                    for line in chunk.split("\n"):
+                        if line.startswith("Metadata JSON: "):
+                            meta = json.loads(line[len("Metadata JSON: "):].strip())
+                            break
+                except Exception as e:
+                    print(f"Error parsing metadata JSON from chunk: {e}")
+            
+            # Clean up/extract actual text content
+            if "---CONTENT---" in chunk:
+                text = chunk.split("---CONTENT---", 1)[1].strip()
             else:
-                groups[key]["text"] += "\n\n" + chunk
+                text = chunk.strip()
         else:
             meta = chunk.get("metadata", {}) if isinstance(chunk, dict) else {}
             text = chunk.get("text", chunk.get("document", str(chunk))) if isinstance(chunk, dict) else str(chunk)
-            key = _get_source_key(text, meta)
-            if key not in groups:
-                groups[key] = {"text": text, "metadata": meta}
-            else:
-                groups[key]["text"] += "\n\n" + text
+            
+        parsed_chunks.append({"text": text, "metadata": meta})
+        
+        # Print Chunk Details as requested
+        print("--------------------------------------------------")
+        print("Retrieved Chunk")
+        print(f"- source_file: {meta.get('source_file', '')}")
+        print(f"- filename: {meta.get('filename', '')}")
+        print(f"- document_id: {meta.get('document_id', '')}")
+        print(f"- collection: {meta.get('collection', '')}")
+        print(f"- section: {meta.get('section', '')}")
+        print(f"- chunk index: {meta.get('chunk_index', '')}")
+        print("--------------------------------------------------")
+
+    # 2. Group chunks by original PDF document grouping key
+    groups: Dict[str, Dict[str, Any]] = {}
+    chunk_counts: Dict[str, int] = {}
+    
+    for item in parsed_chunks:
+        text = item["text"]
+        meta = item["metadata"]
+        
+        key = _get_source_key(text, meta)
+        
+        if key not in groups:
+            groups[key] = {"text": text, "metadata": meta}
+            chunk_counts[key] = 1
+        else:
+            groups[key]["text"] += "\n\n" + text
+            chunk_counts[key] += 1
+            
+    # 3. Print Grouped Resume details as requested
+    for key, group in groups.items():
+        print("--------------------------------------------------")
+        print("Grouped Resume")
+        print(f"- grouping key: {key}")
+        print(f"- chunks merged: {chunk_counts[key]}")
+        print(f"- merged text length: {len(group['text'])}")
+        print("--------------------------------------------------")
+        
     return groups
+
 
 
 # ---------------------------------------------------------------------------
@@ -1091,9 +1149,32 @@ def extract_structured_evidence(state: Dict[str, Any]) -> Dict[str, Any]:
         validation_results.append((prof, prof.source_key, valid, reason))
         if valid:
             validated_alumni.append(prof)
+            
+        # Print Debug Log Block as requested
+        status_str = "valid" if valid else f"invalid ({reason})"
+        print("--------------------------------------------------")
+        print("Extracted Alumni")
+        print(f"- name: {prof.name}")
+        print(f"- company: {prof.company}")
+        print(f"- role: {prof.role}")
+        print(f"- validation status: {status_str}")
+        print("--------------------------------------------------")
+        
+        # Second print block as requested in "TASK" section
+        print("--------------------------------------------------")
+        print(f"Extracted Name: {prof.name}")
+        print(f"Company: {prof.company}")
+        print(f"Role: {prof.role}")
+        print(f"Projects: {prof.projects}")
+        print(f"Skills: {prof.skills}")
+        print(f"Technologies: {prof.technologies}")
+        print(f"Validation Result: {'Passed' if valid else 'Failed'}")
+        print("--------------------------------------------------")
+
     _print_alumni_validation_report(validation_results)
     print(f"[VALIDATION] {len(validated_alumni)}/{len(alumni_list)} alumni passed validation")
     alumni_list = validated_alumni
+
 
     # ── 3. Interview Experiences (Issue 5) ─────────────────────────────────
     interview_list: List[InterviewExperience] = []
