@@ -1,130 +1,193 @@
 """
-dynamic_mentor.py — Retrieval-Driven Dynamic AI Placement Mentor with Multi-Level Confidence & Attribution.
+dynamic_mentor.py — Retrieval-Driven Dynamic AI Placement Mentor.
 
-Architecture & Principles:
-1. Intent-Driven Dynamic Generation — No hardcoded templates or fixed 9 sections.
-2. Explains pre-computed deterministic matching scores (skill overlap, match score, confidence score).
-3. Dynamic Evidence Attribution — Links recommendations to unique Evidence Object IDs (`alumni_ev_1`).
-4. Evidence-First — If evidence is missing, outputs "This information is not available in the institutional knowledge base."
-5. Dynamic Prompt Builder — Includes ONLY context relevant to the user query.
-6. Context-based Validation — Validates outputs against actual retrieved objects (not hardcoded strings).
-7. Structured Evidence Logging — Logs statistics & multi-level confidence without exposing sensitive text.
+Fixes applied (Issues 6, 9, 10, 11, 12):
+  6.  Intent classification: ML/AI/DL/NLP terms map to domain_guidance/career_guidance/skill_gap
+  9.  Prompt builder: ALL extracted fields forwarded (designation, education, certifications,
+      achievements, career_path, interview rounds/topics/FAQs, aggregated insights)
+  10. Why-selected explanation per alumnus in prompt
+  11. Evidence citations in every recommendation block
+  12. Prompt Builder Summary log before LLM invocation
 """
 
 from typing import Dict, List, Any, Tuple
 from llm import llm_call
+from config import TOP_ALUMNI_COUNT
 from generation.structured_evidence import (
     extract_structured_evidence,
     compute_deterministic_recommendations,
+    aggregate_alumni_evidence,
     StudentProfile,
     AlumniProfile,
     InterviewExperience,
-    PlacementMaterial
+    PlacementMaterial,
 )
 
 
+# ---------------------------------------------------------------------------
+# Intent Detection (Issue 6)
+# ---------------------------------------------------------------------------
+
+# Single-word ML tokens (matchable via word-set intersection)
+_ML_SINGLE_TERMS = {
+    "ml", "ai", "nlp", "llm", "gan", "bert", "gpt",
+    "transformers", "cv", "dl",
+}
+
+# Multi-word ML phrases (requiresubstring search on the full lowered query)
+_ML_PHRASE_TERMS = [
+    "machine learning", "deep learning", "artificial intelligence",
+    "neural network", "natural language processing", "computer vision",
+    "large language model", "generative ai", "gen ai",
+    "stable diffusion", "reinforcement learning", "transfer learning",
+]
+
+_SKILL_GAP_TERMS = {
+    "skill", "gap", "missing", "learn", "improve", "upskill",
+    "lacking", "need to know", "what to learn",
+}
+
+_CAREER_TERMS = {
+    "career", "job", "placement", "role", "company", "company",
+    "work at", "get into", "join", "hired", "opportunity", "path",
+}
+
+_ALUMNI_TERMS = {
+    "compare", "alumni", "senior", "resume vs", "similar", "like me",
+    "which alumni", "how did", "who got placed",
+}
+
+_INTERVIEW_TERMS = {
+    "interview", "round", "question", "prep", "preparation",
+    "oa", "online assessment", "technical round", "hr round", "coding test",
+}
+
+_COMPANY_TERMS = {
+    "company", "companies", "apply", "target", "apply to",
+    "google", "amazon", "adobe", "microsoft", "meta", "flipkart",
+    "which companies",
+}
+
+_ROADMAP_TERMS = {
+    "roadmap", "plan", "30-day", "schedule", "timeline",
+    "week", "month", "how long", "preparation plan",
+}
+
+
+def _detect_query_intent(query: str) -> str:
+    import re as _re
+    q_lower = query.lower()
+    # Strip punctuation from each token for robust set intersection
+    words = set(_re.sub(r"[^\w]", "", w) for w in q_lower.split())
+
+    # ML/AI queries — check both single-word tokens AND substrings for multi-word terms
+    ml_hit = (words & _ML_SINGLE_TERMS) or any(t in q_lower for t in _ML_PHRASE_TERMS)
+    if ml_hit:
+        if words & _SKILL_GAP_TERMS or any(t in q_lower for t in ["skill", "gap", "missing", "learn", "improve", "need", "what should"]):
+            return "skill_gap"
+        return "domain_guidance"
+
+    if words & _SKILL_GAP_TERMS:
+        return "skill_gap"
+    if words & _ALUMNI_TERMS or any(t in q_lower for t in ["alumni", "compare", "similar to me"]):
+        return "alumni_comparison"
+    if words & _INTERVIEW_TERMS or any(t in q_lower for t in ["interview", "preparation", "online assessment"]):
+        return "interview_prep"
+    if words & _COMPANY_TERMS or any(t in q_lower for t in ["companies", "apply to", "which company"]):
+        return "company_guidance"
+    if words & _ROADMAP_TERMS or any(t in q_lower for t in ["roadmap", "timeline", "preparation plan"]):
+        return "roadmap"
+    if words & _CAREER_TERMS or any(t in q_lower for t in ["career", "placement", "job", "get into"]):
+        return "career_guidance"
+
+    return "general_mentorship"
+
+
+# ---------------------------------------------------------------------------
+# Main Entry Point
+# ---------------------------------------------------------------------------
+
 def generate_dynamic_mentor_response(state: Dict[str, Any], max_retries: int = 2) -> str:
-    """
-    Main entry point for dynamic, retrieval-driven mentor generation.
-    Orchestrates:
-    1. Structured Evidence Extraction (metadata-first)
-    2. Deterministic Matching Engine (Python-computed match scores, overlap arrays, multi-level confidence)
-    3. Intent Analysis (query-driven focus)
-    4. Dynamic Prompt Construction (with Evidence Attribution IDs)
-    5. Context-driven Post-Validation
-    6. Non-sensitive Multi-Level Evidence Logging
-    """
     question = state["question"]
 
-    # 1. Extract Structured Evidence Objects
+    # 1. Extract structured evidence
     evidence = extract_structured_evidence(state)
     student: StudentProfile = evidence["student"]
     alumni_list: List[AlumniProfile] = evidence["alumni"]
     interview_list: List[InterviewExperience] = evidence["interviews"]
     placement_list: List[PlacementMaterial] = evidence["placement"]
 
-    # 2. Deterministic Recommendation Engine (Python calculates match & confidence scores)
+    # 2. Score & rank alumni
     matches = compute_deterministic_recommendations(student, alumni_list)
+    top_matches = matches[:TOP_ALUMNI_COUNT]
 
-    # 3. Detect Intent & Query Focus
+    # 3. Aggregate evidence across top alumni (Issue 7)
+    agg = aggregate_alumni_evidence(alumni_list, top_n=TOP_ALUMNI_COUNT)
+
+    # 4. Detect intent
     intent = _detect_query_intent(question)
 
-    # 4. Multi-Level Evidence Logging (Non-sensitive)
-    _log_generation_evidence(state, evidence, matches, intent)
+    # 5. Log generation context (Issue 12)
+    _log_generation_context(state, evidence, top_matches, agg, intent)
 
-    # 5. Build Dynamic Prompt
-    prompt = _build_dynamic_prompt(question, intent, student, matches, interview_list, placement_list, state)
+    # 6. Build prompt
+    prompt = _build_dynamic_prompt(question, intent, student, top_matches, interview_list, placement_list, agg, state)
 
+    # 7. LLM generation with retry
     current_prompt = prompt
     response = ""
-
     for attempt in range(max_retries + 1):
-        print(f"🤖 [DYNAMIC GENERATION] LLM Invocation (Attempt {attempt + 1}/{max_retries + 1} | Intent: {intent})...")
+        print(f"🤖 [DYNAMIC GENERATION] LLM Call (Attempt {attempt + 1}/{max_retries + 1} | Intent: {intent})")
         response = llm_call(current_prompt)
-
-        # 6. Validate against retrieved context
-        is_valid, reasons = _validate_response_against_context(response, evidence, matches, intent)
-
+        is_valid, reasons = _validate_response(response, evidence, top_matches, intent)
         if is_valid:
-            print(f"✅ [DYNAMIC GENERATION VALIDATION] Passed on attempt {attempt + 1}!")
+            print(f"✅ [VALIDATION] Passed on attempt {attempt + 1}")
             return response
         else:
-            print(f"❌ [DYNAMIC GENERATION VALIDATION] Failed on attempt {attempt + 1}: {reasons}")
+            print(f"❌ [VALIDATION] Failed attempt {attempt + 1}: {reasons}")
             if attempt < max_retries:
                 feedback = (
-                    f"\n\nCRITICAL FIX REQUIRED (Attempt {attempt + 1} failed):\n" +
-                    "\n".join([f"- {r}" for r in reasons]) +
-                    "\n\nPlease regenerate answering the user's specific question using only the retrieved evidence."
+                    f"\n\nCRITICAL FIX REQUIRED (Attempt {attempt + 1} failed):\n"
+                    + "\n".join(f"- {r}" for r in reasons)
+                    + "\n\nPlease regenerate using only the retrieved evidence above."
                 )
                 current_prompt = prompt + feedback
 
-    print("⚠️ [DYNAMIC GENERATION VALIDATION] Max retries reached. Returning best response.")
+    print("⚠️ [VALIDATION] Max retries reached. Returning best response.")
     return response
 
 
-def _detect_query_intent(query: str) -> str:
-    """Detects query intent to focus prompt instructions dynamically."""
-    q_lower = query.lower()
-    if any(k in q_lower for k in ["skill", "gap", "missing", "learn", "improve"]):
-        return "skill_gap"
-    elif any(k in q_lower for k in ["compare", "alumni", "senior", "resume vs"]):
-        return "alumni_comparison"
-    elif any(k in q_lower for k in ["interview", "round", "question", "prep", "experience"]):
-        return "interview_prep"
-    elif any(k in q_lower for k in ["company", "companies", "apply", "target"]):
-        return "company_guidance"
-    elif any(k in q_lower for k in ["roadmap", "plan", "30-day", "schedule"]):
-        return "roadmap"
-    else:
-        return "general_mentorship"
+# ---------------------------------------------------------------------------
+# Logging (Issue 12)
+# ---------------------------------------------------------------------------
 
-
-def _log_generation_evidence(
-    state: Dict[str, Any],
-    evidence: Dict[str, Any],
-    matches: List[Dict[str, Any]],
-    intent: str
-):
-    """Rule: Log counts, extracted entities, confidence scores, selected evidence without sensitive content."""
+def _log_generation_context(state, evidence, matches, agg, intent):
     student: StudentProfile = evidence["student"]
-    alumni_list = evidence["alumni"]
-    interview_list = evidence["interviews"]
-    placement_list = evidence["placement"]
-
-    scores = [f"{m['alumni_name']} ({m['match_score']}% | Conf: {m['confidence_level']})" for m in matches[:3]]
-
     print("\n" + "═" * 60)
-    print("📊 [DYNAMIC GENERATION LOGGING] Multi-Level Evidence & Confidence Summary")
+    print("📊 [PROMPT BUILDER SUMMARY] Generation Context")
     print("═" * 60)
-    print(f"  • Query Intent       : {intent}")
-    print(f"  • Resume Chunks      : {1 if student.has_resume else 0}")
-    print(f"  • Alumni Evidence    : {len(alumni_list)} items")
-    print(f"  • Interview Evidence : {len(interview_list)} items")
-    print(f"  • Placement Materials: {len(placement_list)} items")
-    print(f"  • Pre-Computed Scores: {scores if scores else 'None'}")
-    print(f"  • Intent Focus       : {intent}")
+    print(f"  • Intent               : {intent}")
+    print(f"  • Student Resume       : {'Yes' if student.has_resume else 'No'}")
+    print(f"  • Student Projects     : {len(student.projects)}")
+    print(f"  • Student Skills       : {len(student.skills)}")
+    print(f"  • Alumni Evidence      : {len(evidence['alumni'])} profiles extracted")
+    print(f"  • Top Matches          : {len(matches)}")
+    for m in matches:
+        bd = m.get("score_breakdown", {})
+        print(f"    → {m['alumni_name']} @ {m['company']} | Score={m['match_score']}% "
+              f"[Sk={bd.get('skill_overlap_pct',0)}% "
+              f"Te={bd.get('tech_overlap_pct',0)}% "
+              f"Pr={bd.get('project_similarity_pct',0)}%]")
+    print(f"  • Interview Evidence   : {len(evidence['interviews'])} items")
+    print(f"  • Placement Materials  : {len(evidence['placement'])} items")
+    print(f"  • Common Skills (agg)  : {agg.get('common_skills', [])[:8]}")
+    print(f"  • Common Tech (agg)    : {agg.get('common_technologies', [])[:8]}")
     print("═" * 60 + "\n")
 
+
+# ---------------------------------------------------------------------------
+# Prompt Builder (Issues 9, 10, 11)
+# ---------------------------------------------------------------------------
 
 def _build_dynamic_prompt(
     question: str,
@@ -133,208 +196,293 @@ def _build_dynamic_prompt(
     matches: List[Dict[str, Any]],
     interviews: List[InterviewExperience],
     placement: List[PlacementMaterial],
-    state: Dict[str, Any]
+    agg: Dict[str, Any],
+    state: Dict[str, Any],
 ) -> str:
     history_text = "\n".join(state.get("history", [])[-6:])
 
-    # Student summary string
+    # ── Student block (Issue 9) ──────────────────────────────────────────
     if student.has_resume:
-        projects_str = "\n".join([f"- {p}" for p in student.projects]) if student.projects else "None listed in structured evidence (check resume excerpt below)"
+        proj_lines = ""
+        if student.projects:
+            for p in student.projects:
+                techs = ", ".join(p.get("technologies", []))
+                proj_lines += f"\n   • {p['title']} [{p['domain']}]"
+                if p.get("description"):
+                    proj_lines += f"\n     Desc: {p['description'][:120]}"
+                if techs:
+                    proj_lines += f"\n     Tech: {techs}"
+                if p.get("impact"):
+                    proj_lines += f"\n     Impact: {p['impact'][:80]}"
+        else:
+            proj_lines = "\n   (No structured project blocks detected — check resume excerpt below)"
+
         student_str = (
-            f"Evidence ID: {student.evidence_id}\n"
-            f"Name: {student.name}\n"
-            f"Department: {student.department}\n"
-            f"Skills: {', '.join(sorted(list(student.skills))) if student.skills else 'None specified'}\n"
-            f"Projects:\n{projects_str}\n"
-            f"Resume Text Excerpt:\n{student.raw_text[:800]}"
+            f"Evidence ID : {student.evidence_id}\n"
+            f"Name        : {student.name}\n"
+            f"Department  : {student.department}\n"
+            f"Education   : {'; '.join(student.education[:3]) or 'Not found'}\n"
+            f"Career Goal : {student.career_objective or 'Not specified'}\n"
+            f"Skills      : {', '.join(sorted(student.skills)) or 'None specified'}\n"
+            f"Technologies: {', '.join(sorted(student.technologies)) or 'None specified'}\n"
+            f"Projects    :{proj_lines}\n"
+            f"Certifications: {', '.join(student.certifications) or 'None'}\n"
+            f"Achievements: {', '.join(student.achievements[:3]) or 'None'}\n"
+            f"Resume Excerpt:\n{student.raw_text[:700]}"
         )
     else:
-        student_str = f"Evidence ID: {student.evidence_id} | Name: {student.name} | Department: {student.department} | Skills: {', '.join(sorted(list(student.skills))) if student.skills else 'None specified'}\nNote: Student has NOT uploaded a resume yet."
+        student_str = (
+            f"Evidence ID : {student.evidence_id} | Name: {student.name} | "
+            f"Department: {student.department} | "
+            f"Skills: {', '.join(sorted(student.skills)) or 'None specified'}\n"
+            "Note: Student has NOT uploaded a resume yet."
+        )
 
-    # Deterministic Matches Block (Python computed)
+    # ── Alumni blocks (Issues 9, 10, 11) ────────────────────────────────
     if matches:
         match_blocks = []
-        for m in matches[:4]:
-            alumni_details = []
-            if m['alumni_name'] and m['alumni_name'] not in ["Alumni Senior", "Unknown Alumni"]:
-                alumni_details.append(f"Alumni: {m['alumni_name']}")
-            if m['company'] and m['company'] not in ["Placed Company", "Unknown Company"]:
-                alumni_details.append(f"Company: {m['company']}")
-            if m['role'] and m['role'] not in ["Software Engineer", "Unknown Role"]:
-                alumni_details.append(f"Role: {m['role']}")
-                
-            details_str = " | ".join(alumni_details)
-            if not details_str:
-                details_str = "Alumni Profile"
-            
-            # Format projects nicely
-            proj_str = ""
-            if m.get('projects'):
-                for p in m['projects'][:3]:
-                    title = p.get("title", "Project")
-                    desc = p.get("description", "")
-                    techs = ", ".join(p.get("technologies", []))
-                    proj_str += f"\n    - {title}: {desc}"
-                    if techs: proj_str += f" (Tech: {techs})"
-            else:
-                proj_str = " No structured project data"
+        for m in matches:
+            # Score breakdown explanation
+            bd = m.get("score_breakdown", {})
+            breakdown_str = (
+                f"Skill overlap: {bd.get('skill_overlap_pct', 0)}%  |  "
+                f"Technology overlap: {bd.get('tech_overlap_pct', 0)}%  |  "
+                f"Project similarity: {bd.get('project_similarity_pct', 0)}%  |  "
+                f"Education: {bd.get('education_pct', 0)}%  |  "
+                f"Experience: {bd.get('experience_pct', 0)}%"
+            )
 
-            # Format experience nicely
-            exp_str = ""
-            if m.get('experience'):
-                for e in m['experience'][:3]:
-                    comp = e.get("company", "")
-                    rol = e.get("role", "")
-                    dur = e.get("duration", "")
-                    if comp or rol:
-                        exp_str += f"\n    - {rol} at {comp} ({dur})"
+            # Projects
+            proj_str = ""
+            if m.get("projects"):
+                for p in m["projects"][:4]:
+                    t = p.get("title", "Project")
+                    desc = p.get("description", "")[:100]
+                    techs = ", ".join(p.get("technologies", [])[:6])
+                    proj_str += f"\n     • {t}: {desc}"
+                    if techs:
+                        proj_str += f" [Tech: {techs}]"
             else:
-                exp_str = " No explicit experience blocks"
+                proj_str = "\n     No structured project data"
+
+            # Experience
+            exp_str = ""
+            if m.get("experience"):
+                for e in m["experience"][:2]:
+                    exp_str += f"\n     • {e.get('role', '')} @ {e.get('company', '')} ({e.get('duration', '')})"
+            else:
+                exp_str = "\n     Not explicitly listed"
+
+            # Project comparison
+            proj_cmp_str = ""
+            for cmp in m.get("matching_projects", [])[:3]:
+                proj_cmp_str += (
+                    f"\n     Student: {cmp.get('student_project', '?')} "
+                    f"↓ Alumni: {cmp.get('alumni_project', '?')}"
+                    f"\n       Shared Tech : {', '.join(cmp.get('shared_tech', [])) or 'None'}"
+                    f"\n       Missing Tech: {', '.join(cmp.get('missing_tech', [])) or 'None'}"
+                    f"\n       Similarity  : {cmp.get('similarity_pct', 0)}%"
+                )
+
+            # Why selected (Issue 10)
+            why_str = m.get("why_selected", "Domain alignment with student profile")
 
             match_blocks.append(
                 f"[Evidence ID: {m['evidence_id']}]\n"
-                f"- {details_str}\n"
-                f"  • Match Score: {m['match_score']}% (Conf: {m['confidence_level']})\n"
-                f"  • Skills: {', '.join(m['matching_skills'] + m['missing_skills'])}\n"
-                f"  • Technologies: {', '.join(m.get('technologies', []))}\n"
-                f"  • Experience:{exp_str}\n"
-                f"  • Projects:{proj_str}\n"
-                f"  • Certifications: {', '.join(m.get('certifications', []))}\n"
-                f"  • Full Excerpt: {m['raw_text'][:300]}"
+                f"  Alumni Name   : {m['alumni_name']}\n"
+                f"  Company       : {m['company']}\n"
+                f"  Role          : {m['role']}\n"
+                f"  Designation   : {m.get('designation', m['role'])}\n"
+                f"  Education     : {'; '.join(m.get('education', [])[:2]) or 'Not listed'}\n"
+                f"  Career Path   : {' → '.join(m.get('career_path', [])) or 'Not listed'}\n"
+                f"  Match Score   : {m['match_score']}% (Confidence: {m['confidence_level']})\n"
+                f"  Score Breakdown:\n    {breakdown_str}\n"
+                f"  Why Selected  : {why_str}\n"
+                f"  Shared Skills : {', '.join(m.get('matching_skills', [])) or 'None matched'}\n"
+                f"  Missing Skills: {', '.join(m.get('missing_skills', [])[:8]) or 'None'}\n"
+                f"  Technologies  : {', '.join(m.get('technologies', [])[:10])}\n"
+                f"  Tech Overlap  : {', '.join(m.get('tech_overlap', [])) or 'None'}\n"
+                f"  Missing Tech  : {', '.join(m.get('missing_tech', [])[:8]) or 'None'}\n"
+                f"  Certifications: {', '.join(m.get('certifications', [])) or 'None'}\n"
+                f"  Achievements  : {'; '.join(m.get('achievements', [])[:2]) or 'None'}\n"
+                f"  Experience    :{exp_str}\n"
+                f"  Projects      :{proj_str}\n"
+                f"  Project Comparison (Student ↔ Alumni):{proj_cmp_str or chr(10) + '     No student projects to compare'}\n"
+                f"  Resume Excerpt: {m['raw_text'][:350]}"
             )
         alumni_str = "\n\n".join(match_blocks)
     else:
         alumni_str = "This information is not available in the institutional knowledge base."
 
-    # Interview Experiences Block
+    # ── Aggregated Insights Block (Issue 7, 11) ──────────────────────────
+    if agg:
+        agg_str = (
+            f"Alumni Count Analysed : {agg.get('alumni_count', 0)}\n"
+            f"Common Skills         : {', '.join(agg.get('common_skills', [])) or 'Insufficient data'}\n"
+            f"Common Technologies   : {', '.join(agg.get('common_technologies', [])) or 'Insufficient data'}\n"
+            f"Frequent Companies    : {', '.join(agg.get('frequent_companies', [])) or 'N/A'}\n"
+            f"Shared Career Paths   : {', '.join(agg.get('shared_career_paths', [])) or 'N/A'}\n"
+            f"Common Project Domains: {', '.join(agg.get('common_project_domains', [])) or 'N/A'}"
+        )
+    else:
+        agg_str = "This information is not available in the institutional knowledge base."
+
+    # ── Interview Block (Issues 5, 9) ────────────────────────────────────
     if interviews:
         int_blocks = []
-        for exp in interviews[:4]:
+        for iv in interviews[:4]:
             int_blocks.append(
-                f"[Evidence ID: {exp.evidence_id}]\n"
-                f"- Company: {exp.company} | Role: {exp.role} | Difficulty: {exp.difficulty}\n"
-                f"  Details: {exp.raw_text[:400]}"
+                f"[Evidence ID: {iv.evidence_id}]\n"
+                f"  Company   : {iv.company}\n"
+                f"  Role      : {iv.role}\n"
+                f"  Difficulty: {iv.difficulty}\n"
+                f"  Rounds    : {', '.join(iv.rounds) or 'Not listed'}\n"
+                f"  Topics    : {', '.join(iv.topics) or 'Not listed'}\n"
+                f"  FAQs      : {'; '.join(iv.faqs[:3]) or 'Not listed'}\n"
+                f"  Prep Tips : {'; '.join(iv.prep_tips[:3]) or 'Not listed'}\n"
+                f"  Details   : {iv.raw_text[:350]}"
             )
         interview_str = "\n\n".join(int_blocks)
     else:
         interview_str = "This information is not available in the institutional knowledge base."
 
-    # Placement Guides Block
+    # ── Placement Block ───────────────────────────────────────────────────
     if placement:
-        placement_str = "\n".join([f"[Evidence ID: {p.evidence_id}] - {p.title}: {p.raw_text[:300]}" for p in placement[:3]])
+        placement_str = "\n".join(
+            f"[{p.evidence_id}] {p.title}: {p.raw_text[:300]}" for p in placement[:3]
+        )
     else:
         placement_str = "This information is not available in the institutional knowledge base."
 
-    prompt = f"""You are an experienced Senior University Placement Mentor conducting a personalized placement strategy session with a student.
-You have access to structured evidence retrieved from the institutional knowledge base.
+    prompt = f"""You are an experienced Senior University Placement Mentor conducting a personalised placement strategy session.
+You have structured evidence retrieved from the institutional knowledge base. Use ONLY this evidence.
 
 === RETRIEVED STRUCTURED EVIDENCE ===
 
-[STUDENT PROFILE EVIDENCE]
+[STUDENT PROFILE]
 {student_str}
 
-[PRE-COMPUTED ALUMNI MATCHES (DETERMINISTIC PYTHON ENGINE)]
+[PRE-COMPUTED ALUMNI MATCHES — Top {len(matches)} Ranked by Python Scoring Engine]
 {alumni_str}
 
-[INTERVIEW EXPERIENCES EVIDENCE]
+[AGGREGATED INSIGHTS ACROSS TOP ALUMNI]
+{agg_str}
+
+[INTERVIEW EXPERIENCES]
 {interview_str}
 
-[PLACEMENT MATERIALS EVIDENCE]
+[PLACEMENT MATERIALS]
 {placement_str}
 
 [CONVERSATION HISTORY]
 {history_text}
 
-[USER QUESTION]
+[STUDENT QUESTION]
 {question}
 
-=== SENIOR MENTOR RESPONSE & STYLE INSTRUCTIONS ===
+=== SENIOR MENTOR INSTRUCTIONS ===
 
-1. HALLUCINATION PREVENTION (STRICT):
-   - NEVER invent alumni names, company names, projects, or interview rounds. 
-   - NEVER invent project suggestions like "Stable Diffusion" or "RAG" unless explicitly present in the retrieved alumni evidence.
-   - If evidence is unavailable for a specific section, explicitly state: "This information is not available in the institutional knowledge base."
-   - Do NOT say "Not specified" or "Not listed" for missing alumni details. Simply omit the field entirely (e.g., if company is missing, just show Name and Role).
+QUERY INTENT DETECTED: {intent}
 
-2. OUTPUT STYLE:
-   - Use rich markdown.
-   - Use structured Markdown TABLES for skill comparisons (e.g., `| Category | Student | Alumni |`).
-   - Use concise bullets instead of long paragraphs.
-   - Ensure the comparison is highly readable and visually structured.
+RULE 1 — HALLUCINATION PREVENTION (STRICT):
+- NEVER invent alumni names, companies, projects, interview rounds, or recommendations.
+- If a field says "Not listed" or "None", do NOT guess or fabricate.
+- If evidence is unavailable for a section, state: "This information is not available in the institutional knowledge base."
 
-3. ADAPTIVE SECTION ORGANIZATION (INCLUDE ONLY IF EVIDENCE EXISTS):
-   Organize your response naturally based on the user's query intent ('{intent}') and the retrieved evidence:
+RULE 2 — OUTPUT STYLE:
+- Use rich Markdown with headers, tables, and bullet points.
+- Skill comparisons: always use a Markdown TABLE with ✅ (student has) and ❌ (student missing).
+- Keep each section focused and concise.
 
-   • STUDENT PROFILE SUMMARY:
-     - Summarize only information actually present in the uploaded resume (Education, Skills, Projects, Experience, Certifications).
-     - Do NOT state that projects are missing unless the structured evidence extractor explicitly says 'None listed in structured evidence' AND you find zero projects in the raw resume text excerpt.
+RULE 3 — MANDATORY STRUCTURE (based on intent: {intent}):
+Include only sections that have evidence. Suggested order:
 
-   • ALUMNI COMPARISON & SELECTION REASONING:
-     - Display Name, Company, and Role ONLY if available in evidence. Hide unavailable fields.
-     - Detail Shared Skills (✓) and Missing Skills (✗).
-     - Explain WHY the alumnus was selected based on shared skills and gaps.
+### 📋 Student Summary
+Summarise the student's actual resume. Mention projects, skills, technologies.
+Do NOT say "no projects" if the student has projects listed above.
 
-   • MATCH SCORE EXPLANATION:
-     - Do NOT simply print "43%".
-     - Explain the score: "Your profile currently matches approximately {matches[0]['match_score'] if matches else 'N/A'}% of this alumni profile based on skill overlap and project similarity. Confidence is {matches[0]['confidence_level'] if matches else 'N/A'} because..."
+### 🎓 Relevant Alumni
+For EACH matched alumni profile (show all {len(matches)} if available):
+  - Name | Company | Role
+  - Match Score: XX%  (explain: "Skill overlap: X%, Tech overlap: Y%, Project similarity: Z%")
+  - **Why Selected**: [use the Why Selected field verbatim or paraphrase it]
+  - Shared Skills: [list]
+  - Missing Skills: [list — these are your gaps]
+  - Projects: [list from evidence]
 
-   • DETAILED PROJECT COMPARISON (CRITICAL):
-     - Compare student's projects vs retrieved alumni projects directly (e.g., "Your Project: [Name] ↓ Alumni Project: [Name]").
-     - Detail Strengths and Gaps in tech stack (e.g., "Both involve Machine Learning. Gap: Alumni project uses PyTorch and deployment").
-     - If alumni projects are unavailable in the evidence, state: "The retrieved alumni profile does not contain sufficient project information for comparison." DO NOT invent projects to compare.
+### 📊 Skill & Technology Comparison Table
+Present a Markdown TABLE:
+| Skill/Technology | You (Student) | Alumni (aggregate) |
+|------------------|---------------|--------------------|
+Show ✅ for present and ❌ for missing. Include ALL skills and technologies from evidence.
 
-   • SKILL COMPARISON TABLE:
-     - Present a markdown table comparing Student skills vs Alumni skills side-by-side, marking ✅ and ❌. List the specific Gaps below the table.
+### 🔁 Project Comparison
+For each student project, show:
+  Student Project → Closest Alumni Project
+  Shared Technologies | Missing Technologies | Similarity %
+Do NOT invent projects.
 
-   • INTERVIEW EXPERIENCE INSIGHTS:
-     - If interview evidence exists, summarize Company, Difficulty, Interview Rounds, Frequently Asked Topics, and Important Technical Areas.
-     - Only include companies retrieved from evidence. If none exist, omit this section.
+### 🌐 Common Patterns Across Alumni
+Based on aggregated evidence:
+  - Common skills that successful alumni share
+  - Common technologies
+  - Frequent companies
 
-   • PLACEMENT MATERIAL GUIDANCE:
-     - Summarize relevant preparation guidance from retrieved placement materials. Do not copy the whole document.
+### 🎯 Evidence-Backed Recommendations
+For each recommendation:
+  - State the recommendation
+  - **Why**: cite which alumni profiles support this (Issue 11)
+  - **Confidence**: High / Medium / Low based on how many alumni share this pattern
 
-   • EVIDENCE-GROUNDED ROADMAP:
-     - The roadmap MUST directly reference the retrieved evidence.
-     - AVOID generic advice like "Attend seminars" or "Learn AI".
-     - USE evidence-backed goals: "Immediate Priorities: Learn PyTorch because every retrieved Machine Learning Engineer profile uses it."
-     - Tie Short-Term and Long-Term Goals directly to the retrieved alumni, skills, or interview insights.
+### 🗺️ Roadmap
+  - Immediate Priorities (next 2 weeks)
+  - Short-Term Goals (1–3 months)
+  - Long-Term Goals (3–12 months)
+Each goal must reference specific skills/technologies/companies from the evidence.
 
-Write your dynamic, rich, senior mentor response now in clean Markdown formatting:"""
+### 🧠 Interview Preparation (only if interview evidence exists)
+  - Company | Role | Difficulty
+  - Rounds breakdown
+  - Topics to focus on
+  - FAQs from retrieved evidence
+
+Produce your response in clean Markdown now:"""
 
     return prompt
 
 
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
 
-def _validate_response_against_context(
+def _validate_response(
     response: str,
     evidence: Dict[str, Any],
     matches: List[Dict[str, Any]],
-    intent: str
+    intent: str,
 ) -> Tuple[bool, List[str]]:
-    """
-    Validates output against actual retrieved context objects (not hardcoded strings).
-    """
     reasons = []
     resp_lower = response.lower()
 
-    # 1. Banned generic phrases check
-    forbidden = ["our alumni", "to become an ml engineer", "you should learn python", "machine learning requires"]
-    for f in forbidden:
-        if f in resp_lower:
-            reasons.append(f"Contains forbidden generic phrase: '{f}'")
+    # Banned generic phrases
+    banned = ["our alumni", "you should learn python", "machine learning requires",
+               "to become an ml engineer"]
+    for phrase in banned:
+        if phrase in resp_lower:
+            reasons.append(f"Contains forbidden generic phrase: '{phrase}'")
 
-    # 2. Check if alumni were retrieved, response references at least one retrieved alumni
-    if matches and matches[0]["alumni_name"] not in ["Alumni", "Alumni Senior"]:
-        found_alumni = any(m["alumni_name"].lower() in resp_lower for m in matches if m["alumni_name"])
-        if not found_alumni and intent in ["alumni_comparison", "skill_gap", "company_guidance"]:
-            reasons.append(f"Failed to reference retrieved alumni e.g. '{matches[0]['alumni_name']}'")
+    # At least one retrieved alumni name must be mentioned
+    valid_matches = [m for m in matches if m["alumni_name"] not in ("Alumni Senior", "Unknown Alumni", "")]
+    if valid_matches and intent in ("skill_gap", "alumni_comparison", "career_guidance", "domain_guidance", "general_mentorship"):
+        found = any(m["alumni_name"].lower() in resp_lower for m in valid_matches)
+        if not found:
+            reasons.append(f"Failed to reference any retrieved alumni (e.g. '{valid_matches[0]['alumni_name']}')")
 
-    # 3. Check if interviews were retrieved and intent is interview prep
-    interviews: List[InterviewExperience] = evidence["interviews"]
+    # Interview-prep intent must mention a retrieved company
+    interviews: List[InterviewExperience] = evidence.get("interviews", [])
     if interviews and intent == "interview_prep":
-        found_company = any(i.company.lower() in resp_lower for i in interviews if i.company and i.company != "Unknown Company")
-        if not found_company:
-            reasons.append("Failed to mention company from retrieved interview experiences.")
+        real = [iv for iv in interviews if iv.company and iv.company not in ("Unknown Company", "Interviewed Company")]
+        if real and not any(iv.company.lower() in resp_lower for iv in real):
+            reasons.append("Failed to mention any retrieved interview company.")
 
-    is_valid = len(reasons) == 0
-    return is_valid, reasons
+    return len(reasons) == 0, reasons

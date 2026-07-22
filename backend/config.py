@@ -36,6 +36,21 @@ RERANK_TOP_K = int(os.getenv("RAG_RERANK_TOP_K", "8"))
 REFINE_TOP_K = int(os.getenv("RAG_REFINE_TOP_K", "4"))
 SCORE_THRESHOLD = float(os.getenv("RAG_SCORE_THRESHOLD", "0.0"))
 
+# ── Multi-Alumni Retrieval ───────────────────────────────────────────────
+# How many distinct AlumniProfiles to keep after grouping & ranking
+TOP_ALUMNI_COUNT = int(os.getenv("TOP_ALUMNI_COUNT", "5"))
+# How many merged alumni chunks to allow through refinement (must be >= TOP_ALUMNI_COUNT)
+ALUMNI_REFINE_TOP_K = int(os.getenv("ALUMNI_REFINE_TOP_K", "8"))
+
+# ── Match Score Weights (must sum to 1.0) ───────────────────────────────
+MATCH_SCORE_WEIGHTS = {
+    "skills":       float(os.getenv("WEIGHT_SKILLS",      "0.40")),
+    "technologies": float(os.getenv("WEIGHT_TECHNOLOGIES","0.30")),
+    "projects":     float(os.getenv("WEIGHT_PROJECTS",    "0.20")),
+    "education":    float(os.getenv("WEIGHT_EDUCATION",   "0.05")),
+    "experience":   float(os.getenv("WEIGHT_EXPERIENCE",  "0.05")),
+}
+
 # ── Confidence Scoring Thresholds ────────────────────────────────────────
 CONFIDENCE_HIGH_THRESHOLD = float(os.getenv("CONFIDENCE_HIGH", "75.0"))
 CONFIDENCE_MEDIUM_THRESHOLD = float(os.getenv("CONFIDENCE_MEDIUM", "45.0"))

@@ -5,6 +5,7 @@ from knowledge_base.collections import (
     search_alumni_resumes, search_placement_materials,
 )
 from llm import llm_call
+from config import ALUMNI_REFINE_TOP_K
 
 # Phase 2: Unified Retrieval Engine & Context Builder
 from knowledge_base.retrieval import (
@@ -153,9 +154,11 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
     print(f"[RAG DEBUG] Reranked: KB={len(reranked_kb)}, Resume={len(reranked_resume)}, Alumni={len(reranked_alumni)}, Interviews={len(reranked_interviews)}, Placement={len(reranked_placement)}")
 
     # ── Stage 4: Refinement ───────────────────────────────────────────────────
+    # Alumni uses ALUMNI_REFINE_TOP_K (default 8) so multiple distinct alumni
+    # profiles survive into evidence extraction (Issue 3 fix).
     refined_kb = refine_chunks(reranked_kb, top_k=4)
     refined_resume = refine_chunks(reranked_resume, top_k=4)
-    refined_alumni = refine_chunks(reranked_alumni, top_k=4)
+    refined_alumni = refine_chunks(reranked_alumni, top_k=ALUMNI_REFINE_TOP_K)
     refined_interviews = refine_chunks(reranked_interviews, top_k=4)
     refined_placement = refine_chunks(reranked_placement, top_k=4)
 
