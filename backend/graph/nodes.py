@@ -23,6 +23,7 @@ from generation.dynamic_mentor import generate_dynamic_mentor_response
 # Import 6-stage RAG pipeline functions from the shared RAG_pipeline (rag_core)
 from rag_core.stages.rerank import rerank_chunks
 from rag_core.stages.refine import refine_chunks
+from rag_core.stages.weighted_reranker import weighted_rerank
 
 
 # ──────────────────────────────────────────────────────────
@@ -155,12 +156,12 @@ def retrieve_all_node(state: PlacementState) -> PlacementState:
         print(f"[RAG DEBUG] ⚠️  Alumni context EMPTY for query='{rewritten_query}'")
 
 
-    # ── Stage 3: Reranking ────────────────────────────────────────────────────
-    reranked_kb = rerank_chunks(rewritten_query, kb_chunks)
-    reranked_resume = rerank_chunks(rewritten_query, resume_chunks)
-    reranked_alumni = rerank_chunks(rewritten_query, alumni_chunks)
-    reranked_interviews = rerank_chunks(rewritten_query, interview_chunks)
-    reranked_placement = rerank_chunks(rewritten_query, materials_chunks)
+    # ── Stage 3: Reranking — RRF → Weighted Multi-Signal Reranker ───────────
+    reranked_kb          = weighted_rerank(rewritten_query, rerank_chunks(rewritten_query, kb_chunks))
+    reranked_resume      = weighted_rerank(rewritten_query, rerank_chunks(rewritten_query, resume_chunks))
+    reranked_alumni      = weighted_rerank(rewritten_query, rerank_chunks(rewritten_query, alumni_chunks))
+    reranked_interviews  = weighted_rerank(rewritten_query, rerank_chunks(rewritten_query, interview_chunks))
+    reranked_placement   = weighted_rerank(rewritten_query, rerank_chunks(rewritten_query, materials_chunks))
 
     print(f"[RAG DEBUG] Reranked: KB={len(reranked_kb)}, Resume={len(reranked_resume)}, Alumni={len(reranked_alumni)}, Interviews={len(reranked_interviews)}, Placement={len(reranked_placement)}")
 
