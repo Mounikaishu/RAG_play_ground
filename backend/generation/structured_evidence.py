@@ -20,6 +20,16 @@ from typing import Dict, List, Any, Optional, Tuple, Union
 
 from llm import llm_call
 from config import MATCH_SCORE_WEIGHTS, TOP_ALUMNI_COUNT, CONFIDENCE_HIGH_THRESHOLD, CONFIDENCE_MEDIUM_THRESHOLD
+from parsers.resume_parser import (
+    TECH_KEYWORDS,
+    SKILL_KEYWORDS,
+    extract_projects,
+    extract_achievements,
+    extract_certifications,
+    extract_activities,
+    extract_coding_profiles,
+    extract_objective,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -72,27 +82,7 @@ NON_NAME_WORDS = {
     "Current", "Employer", "Organization", "Workplace",
 }
 
-TECH_KEYWORDS = [
-    "Python", "Java", "C++", "C#", "JavaScript", "TypeScript", "Go", "Rust",
-    "React", "Node.js", "Express", "Angular", "Vue", "Next.js",
-    "HTML", "CSS", "SQL", "PostgreSQL", "MongoDB", "MySQL", "Redis",
-    "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Git", "Linux",
-    "Machine Learning", "Deep Learning", "NLP", "PyTorch", "TensorFlow",
-    "Scikit-Learn", "OpenCV", "Pandas", "NumPy", "Matplotlib", "Seaborn",
-    "Flask", "FastAPI", "Django", "Spring Boot",
-    "MLOps", "Spark", "Hadoop", "Kafka", "Airflow", "CUDA",
-    "LangChain", "LangGraph", "RAG", "Vector DB", "ChromaDB", "Pinecone",
-    "Stable Diffusion", "BLIP", "BERT", "GPT", "LLM", "Transformers",
-    "Tableau", "Power BI", "Looker", "BigQuery",
-    "Data Structures", "Algorithms", "System Design", "Agile", "REST API", "GraphQL",
-]
-
-SKILL_KEYWORDS = [
-    "Data Structures", "Algorithms", "Object Oriented Programming", "System Design",
-    "Agile", "REST API", "GraphQL", "Machine Learning", "Deep Learning", "NLP",
-    "Computer Vision", "Generative AI", "MLOps", "DevOps", "Communication",
-    "Leadership", "Problem Solving", "Critical Thinking",
-]
+# Keywords and skills imported from parsers.resume_parser
 
 # Section headers in resumes that should NEVER be mistaken for project titles
 ADVICE_SECTION_MARKERS = {
@@ -297,6 +287,8 @@ class StudentProfile:
         self.education: List[str] = []
         self.certifications: List[str] = []
         self.achievements: List[str] = []
+        self.activities: List[str] = []
+        self.coding_profiles: Dict[str, str] = {"leetcode": "", "hackerrank": "", "codechef": ""}
         self.career_objective: str = ""
         self.raw_text = raw_text or ""
         self.has_resume = bool(
@@ -331,37 +323,27 @@ class StudentProfile:
                 self.education.append(entry)
 
         # Career objective
-        obj_m = re.search(
-            r"(Career Objective|Objective|Goal|Summary)\s*[:\-]?\s*([^\n]{20,300})",
-            text, re.IGNORECASE)
-        if obj_m:
-            self.career_objective = obj_m.group(2).strip()
+        self.career_objective = extract_objective(text)
 
-        # Projects — student-only extraction (labelled sections only, no advice)
-        self.projects = _extract_projects_student(text)
+        # Projects
+        self.projects = extract_projects(text)
 
         # Certifications
-        cert_section = re.search(
-            r"Certif[^\n]*\n(.*?)(?=\n[A-Z][A-Z\s]{3,}:|\Z)",
-            text, re.IGNORECASE | re.DOTALL)
-        if cert_section:
-            for line in cert_section.group(1).split("\n"):
-                l = re.sub(r"^[-*•\s]+", "", line).strip()
-                if 5 < len(l) < 100:
-                    self.certifications.append(l)
+        self.certifications = extract_certifications(text)
 
         # Achievements
-        ach_section = re.search(
-            r"(Achievement|Award|Honor|Recognition)[^\n]*\n(.*?)(?=\n[A-Z][A-Z\s]{3,}:|\Z)",
-            text, re.IGNORECASE | re.DOTALL)
-        if ach_section:
-            for line in ach_section.group(2).split("\n"):
-                l = re.sub(r"^[-*•\s]+", "", line).strip()
-                if 5 < len(l) < 150:
-                    self.achievements.append(l)
+        self.achievements = extract_achievements(text)
+
+        # Activities
+        self.activities = extract_activities(text)
+
+        # Coding Profiles
+        self.coding_profiles = extract_coding_profiles(text)
+        
+        print(f"After StudentProfile:\nProjects = {len(self.projects)}\n")
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "evidence_id": self.evidence_id,
             "name": self.name,
             "department": self.department,
@@ -374,7 +356,11 @@ class StudentProfile:
             "achievements": self.achievements,
             "career_objective": self.career_objective,
             "has_resume": self.has_resume,
+            "activities": self.activities,
+            "coding_profiles": self.coding_profiles,
         }
+        print(f"After to_dict():\nProjects = {len(result['projects'])}\n")
+        return result
 
 
 class AlumniProfile:
@@ -528,21 +514,7 @@ def _extract_projects_student(text: str) -> List[Dict[str, Any]]:
     Student-specific: ignores placement advice, career goals, interview tips (Issue 3).
     Returns: [{title, description, technologies, domain, impact}]
     """
-    projects: List[Dict[str, Any]] = []
-
-    # Strictly look for a Projects section — must be labelled
-    sec_match = re.search(
-        r"(?:^|\n)\s*(?:##\s*|###\s*|\*\*)?(?:PROJECTS?|Personal Projects?|Academic Projects?"
-        r"|Professional Projects?|Hackathon(?:s)?|Key Projects?)"
-        r"(?:\*\*)?\s*(?:[:\-])?\s*\n(.*?)(?=\n\s*(?:##|###|\*\*[A-Z]{2,}|EXPERIENCE"
-        r"|EDUCATION|SKILLS|CERTIFICATIONS|WORK|INTERNSHIP|PLACEMENT|CAREER|INTERVIEW)|\Z)",
-        text, re.IGNORECASE | re.DOTALL
-    )
-
-    if not sec_match:
-        return []  # Student: never fall back to full-text scan (avoids advice leakage)
-
-    return _parse_project_section(sec_match.group(1))
+    return extract_projects(text)
 
 
 def _extract_projects_alumni(text: str) -> List[Dict[str, Any]]:
@@ -967,10 +939,12 @@ def _print_student_extraction_report(student: "StudentProfile"):
     print(f"Technologies   : {len(student.technologies)} — {', '.join(sorted(student.technologies)[:10])}")
     print(f"Projects       : {len(student.projects)}")
     for p in student.projects:
-        print(f"   • {p['title']} [{p['domain']}] — Tech: {', '.join(p['technologies'][:4])}")
+        print(f"   • {p.get('name', p.get('title', '?'))} [{p.get('domain', '')}] — Tech: {', '.join(p.get('technologies', [])[:4])}")
     print(f"Experience     : {len(student.experience)} entries")
     print(f"Certifications : {len(student.certifications)}")
     print(f"Achievements   : {len(student.achievements)}")
+    print(f"Activities     : {len(student.activities)}")
+    print(f"Coding Profiles: {len([v for v in student.coding_profiles.values() if v])}")
     print("=" * 52 + "\n")
 
 

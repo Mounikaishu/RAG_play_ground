@@ -202,6 +202,8 @@ def _build_dynamic_prompt(
     history_text = "\n".join(state.get("history", [])[-6:])
 
     # ── Student block (Issue 9) ──────────────────────────────────────────
+    print(f"Before Prompt Builder:\nProjects = {len(student.projects)}\n")
+    
     if student.has_resume:
         proj_lines = ""
         if student.projects:
@@ -447,6 +449,9 @@ Each goal must reference specific skills/technologies/companies from the evidenc
   - FAQs from retrieved evidence
 
 Produce your response in clean Markdown now:"""
+
+    prompt_contains = "NO" if "(No structured project blocks detected" in prompt else "YES"
+    print(f"Prompt contains projects:\n{prompt_contains}\n====================================\n")
 
     return prompt
 
