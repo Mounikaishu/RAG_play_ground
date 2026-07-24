@@ -172,7 +172,7 @@ classDiagram
     RAGPipeline --> LLMService : Generate Responses
 ```
 
-### Use Case Diagram: User Interactions
+### Use Case Diagram: Users Interactions
 
 This diagram highlights the distinct actions available to the primary actor of the system (the Student).
 
